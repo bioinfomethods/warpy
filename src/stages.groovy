@@ -3,6 +3,17 @@ convert_fast5_to_pod5 = {
     output.dir = 'pod5'
 
     transform('*.fast5') to('.pod5') {
+        exec """
+            set -o pipefail
+
+            $tools.POD5 convert fast5 $input.fast5 --output $output.pod5
+        """
+    }
+}
+
+dorado = {
+
+    transform('*.fast5') to('.pod5') {
 
    
     uses(dorados: 1) {
@@ -181,6 +192,7 @@ make_clair3_chunks = {
                 --snp_min_af $calling.snp_min_af
                 --indel_min_af $calling.indel_min_af
                 --min_contig_size $min_contig_size
+
         """
     }
     
@@ -230,7 +242,8 @@ pileup_variants = {
 
             touch -a $output.vcf.optional
 
-            echo "`date` : successfully called variants" > $output.txt
+
+            echo "`date` : succesfully called variants" > $output.txt
         """
     }
 }
@@ -309,6 +322,10 @@ phase_contig = {
                 bgzip $output.prefix
 
                 tabix -f -p vcf $output
+
+                conda deactivate
+
+                unset __conda_setup
          """
     }
 }
@@ -402,6 +419,10 @@ evaluate_candidates = {
                 --indel_min_af $calling.indel_min_af
                 --platform ont 
                 --phased_vcf_fn $input.vcf.gz
+
+            conda deactivate
+
+            unset __conda_setup
         """
     }
 }
