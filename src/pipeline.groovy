@@ -8,12 +8,12 @@ options {
     sex 'Sample sex (required for STR analysis)', args:1, type: String, required: true
 }
 
-List input_files = opts.fast5_dir.listFiles().grep { it.name.endsWith('.fast5') || it.name.endsWith('.blow5') }
-input_pattern = input_files.any { it.name.endsWith('.fast5') } ? '%.fast5' : '%.blow5'
+List input_files = opts.fast5_dir.listFiles().grep { it.name.endsWith('.fast5') || it.name.endsWith('.pod5') }
+input_pattern = input_files.any { it.name.endsWith('.fast5') } ? '%.fast5' : '%.pod5'
 
 // to make pipeline generic to work for either fast5 or blow5,
 // define virtual file extentions 'x5' that can map to either
-filetype x5 : ['blow5','pod5','fast5']
+filetype x5 : ['pod5', 'fast5']
 
 Map params = model.params
 
@@ -54,7 +54,7 @@ init = {
 
 run(input_files) {
     init + 
-    make_mmi + input_pattern * [ convert_fast5_to_pod5 + dorado + minimap2_align ] + merge_pass_calls + read_stats +
+    make_mmi + input_pattern * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } + dorado + minimap2_align ] + merge_pass_calls + read_stats +
     [
          snp_calling : make_clair3_chunks  * [ pileup_variants ] + aggregate_pileup_variants +
          [ 
