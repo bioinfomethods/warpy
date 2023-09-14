@@ -86,6 +86,7 @@ forward_sample_bam = {
 
 run(input_files) {
     init + basecall_align_reads.when { input_data_type == 'x5' } + forward_sample_bam.when { input_data_type == 'bam' } + read_stats +
+
     [
          snp_calling : make_clair3_chunks  * [ pileup_variants ] + aggregate_pileup_variants +
          [ 
