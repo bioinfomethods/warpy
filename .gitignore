@@ -6,3 +6,4 @@ tools
 *.fasta
 *.fai
 batches
+/eclipse_build/
