@@ -54,7 +54,6 @@ load 'methylation.groovy'
 dorado_group_size = 10
 
 input_groups = input_files.collate(dorado_group_size).indexed().collectEntries { [ "dorado_group_" + it.key, it.value] }
-
    
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
