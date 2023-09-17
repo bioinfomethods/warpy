@@ -20,7 +20,7 @@ dorado = {
             exec """
                 set -o pipefail
 
-                ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -s $it $output.dir/$it.name;"}.join("\n") }
+                ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -sf $it $output.dir/$it.name;"}.join("\n") }
 
                 $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir/${file(input.x5).name} --modified-bases 5mCG_5hmCG | 
                     $tools.SAMTOOLS view -b -o $output.ubam -
