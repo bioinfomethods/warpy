@@ -3,6 +3,9 @@ convert_fast5_to_pod5 = {
     output.dir = 'pod5'
 
     transform('*.fast5') to('.pod5') {
+
+   
+    uses(dorados: 1) {
         exec """
             set -o pipefail
 
@@ -13,8 +16,8 @@ convert_fast5_to_pod5 = {
 
 dorado = {
 
-    output.dir='dorado'
-    
+    output.dir='dorado/' + branch.name
+
     transform('.x5') to ('.ubam') {
         uses(dorados: 1) {
             exec """
