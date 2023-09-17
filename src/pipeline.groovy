@@ -50,13 +50,14 @@ load 'stages.groovy'
 load 'sv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
+
+dorado_group_size = 10
+
+input_groups = input_files.collate(dorado_group_size).indexed().collectEntries { [ "dorado_group_" + it.key, it.value] }
+
    
 init = {
-    if (input_data_type == 'x5')
-        println "\nProcessing ${input_files.size()} input fast5/pod5 files ...\n"
-    else
-        println "\nProcessing ${input_bam_files.size()} input BAM files ...\n"
-
+    println "\nProcessing ${input_files.size()} input files ...\n"
     println "\nUsing base calling model: $params.drd_model"
     println "\nUsing clair3 model: $clair3_model"
     
@@ -68,7 +69,7 @@ init = {
 }
 
 basecall_align_reads = segment {
-    make_mmi.when { ! new File(REF_MMI).exists() } + input_pattern * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
+    make_mmi.when { ! new File(REF_MMI).exists() } + input_groups * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
         dorado + minimap2_align ] + merge_pass_calls
 }
 
