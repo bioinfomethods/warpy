@@ -13,13 +13,13 @@ suppressPackageStartupMessages({
 })
 
 read_vcf <- function(vcf_file_path) {
-  samples.var.gq.dt <- as.data.table(readGeno(vcf_file_path, x = "GQ"))
-  samples.ids <- colnames(samples.var.gq.dt)
+    samples.var.gq.dt <- as.data.table(readGeno(vcf_file_path, x = "GQ"))
+    samples.ids <- colnames(samples.var.gq.dt)
   
-  #Missing GQ (i.e. NA) set to -1
-  samples.var.gq.dt[, (samples.ids) := lapply(.SD, function(x) replace(x, is.na(x), -1)), .SDcols = samples.ids]
+    #Missing GQ (i.e. NA) set to -1
+    samples.var.gq.dt[, (samples.ids) := lapply(.SD, function(x) replace(x, is.na(x), -1)), .SDcols = samples.ids]
   
-  return(samples.var.gq.dt)
+    return(samples.var.gq.dt)
 }
 
 get_sample_gq_dist <- function(samples.var.gq.dt) {
@@ -53,13 +53,12 @@ get_sample_gq_dist <- function(samples.var.gq.dt) {
 normalise_gq_dist <- function(vcf.samples.gq.dist.dt) {
     vcf.samples.norm.gq.dist.dt <- copy(vcf.samples.gq.dist.dt)
     samples.ids <- colnames(vcf.samples.norm.gq.dist.dt)[-1]
-    #print(samples.ids)
     vcf.samples.norm.gq.dist.dt[, (samples.ids) := lapply(.SD, function(x) x / sum(x)), .SDcols = samples.ids]
     
     return(vcf.samples.norm.gq.dist.dt)
 }
 
-plot_gq_dist <- function(vcf.samples.gq.dist.dt, is_plot_cum = FALSE, is_norm = FALSE) {
+plot_gq_dist <- function(vcf.samples.gq.dist.dt, is_plot_cum = FALSE, is_norm = FALSE, is_histo = FALSE) {
     samples.gq.dist.long.dt <- melt(vcf.samples.gq.dist.dt, 
                                     id.vars = "GQ", 
                                     variable.name = "Sample", 
@@ -69,7 +68,8 @@ plot_gq_dist <- function(vcf.samples.gq.dist.dt, is_plot_cum = FALSE, is_norm = 
     
     if (is_plot_cum) {
         samples.gq.dist.long.dt[, cum_N := ave(Count, Sample, FUN = cumsum)]
-        p <- ggplot(samples.gq.dist.long.dt, aes(x = GQ, y = cum_N, color = Sample))
+        p <- ggplot(samples.gq.dist.long.dt, aes(x = GQ, y = cum_N, color = Sample)) + 
+            geom_line()
         
         if (is_norm) {
             plot.title <- "Normalised cumulative GQ distribution of sample variants"
@@ -81,23 +81,27 @@ plot_gq_dist <- function(vcf.samples.gq.dist.dt, is_plot_cum = FALSE, is_norm = 
         }
     }
     else {
-        p <- ggplot(samples.gq.dist.long.dt, aes(x = GQ, y = Count, color = Sample))
+        if (is_histo) {
+            p <- ggplot(samples.gq.dist.long.dt, aes(x = GQ, y = Count, fill = Sample)) + 
+                geom_col(position = "dodge")
+        }
+        else {
+            p <- ggplot(samples.gq.dist.long.dt, aes(x = GQ, y = Count, color = Sample)) + 
+                geom_line()
+        }
         
         if (is_norm) {
             plot.title <- "Normalised GQ distribution of sample variants"
-            y_axis.title <- "Normalised frequency"  
+            y_axis.title <- "Normalised frequency"
         }
         else {
             plot.title <- "GQ distribution of sample variants"
             y_axis.title <- "No. of variants"
         }
-        
     }
     
     p <- p +
-        geom_line() +
         scale_x_continuous(breaks = seq(0, gq.endpoint, 10)) +
-        #scale_y_continuous(labels = label_number_si()) +
         labs(title = plot.title, x = "GQ", y = y_axis.title) +
         theme_bw() +
         theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
@@ -180,12 +184,6 @@ samples.var.gq.dt <- read_vcf(vcf_file_path)
 vcf.samples.gq.dist.dt <- get_sample_gq_dist(samples.var.gq.dt)
 vcf.samples.norm.gq.dist.dt <- normalise_gq_dist(vcf.samples.gq.dist.dt)
 
-samples.gq.dist.plot <- plot_gq_dist(vcf.samples.gq.dist.dt)
-samples.gq.cum_dist.plot <- plot_gq_dist(vcf.samples.gq.dist.dt, is_plot_cum = TRUE)
-samples.norm.gq.dist.plot <- plot_gq_dist(vcf.samples.norm.gq.dist.dt, is_norm = TRUE)
-samples.norm.gq.cum_dist.plot <- plot_gq_dist(vcf.samples.norm.gq.dist.dt, is_plot_cum = TRUE, is_norm = TRUE)
-samples.gq.density.plot <- plot_gq_density(samples.var.gq.dt)
-
 #GQ TSV file
 output_file_name.prefix <- file_path_sans_ext(basename(vcf_file_path))
 output_tsv_file_path <- file.path(output_dir_path, 
@@ -195,41 +193,71 @@ write.table(vcf.samples.gq.dist.dt, file = output_tsv_file_path, sep = "\t", quo
 message(paste0("GQ distribution exported to '", output_tsv_file_path, "'"))
 
 #GQ distribution plot
-gq.dist.output_png_file_path <- file.path(output_dir_path, 
-                                          paste0(output_file_name.prefix, 
-                                                 ".gq_dist.png"))
-export_plot_to_png(samples.gq.dist.plot, gq.dist.output_png_file_path)
-message(paste0("GQ distribution plot exported to '", gq.dist.output_png_file_path, "'"))
-
-#Cumulative GQ distribution plot
-gq.cum_dist.output_png_file_path <- file.path(output_dir_path, 
-                                              paste0(output_file_name.prefix, 
-                                                     ".gq_cum_dist.png"))
-export_plot_to_png(samples.gq.cum_dist.plot, gq.cum_dist.output_png_file_path)
-message(paste0("Cumulative GQ distribution plot exported to '", gq.cum_dist.output_png_file_path, "'"))
+samples.gq.dist.plot <- plot_gq_dist(vcf.samples.gq.dist.dt)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".gq_dist.png"))
+export_plot_to_png(samples.gq.dist.plot, output_png_file_path)
+message(paste0("GQ distribution plot exported to '", output_png_file_path, "'"))
 
 #Normalised GQ distribution plot
-norm.gq.dist.output_png_file_path <- file.path(output_dir_path, 
-                                               paste0(output_file_name.prefix, 
-                                                      ".norm.gq_dist.png"))
-export_plot_to_png(samples.norm.gq.dist.plot, norm.gq.dist.output_png_file_path)
+samples.norm.gq.dist.plot <- plot_gq_dist(vcf.samples.norm.gq.dist.dt, 
+                                          is_norm = TRUE)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".norm.gq_dist.png"))
+export_plot_to_png(samples.norm.gq.dist.plot, output_png_file_path)
 message(paste0("Normalised GQ distribution plot exported to '", 
-               norm.gq.dist.output_png_file_path, "'"))
+               output_png_file_path, "'"))
+
+#Cumulative GQ distribution plot
+samples.gq.cum_dist.plot <- plot_gq_dist(vcf.samples.gq.dist.dt, 
+                                         is_plot_cum = TRUE)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".gq_cum_dist.png"))
+export_plot_to_png(samples.gq.cum_dist.plot, output_png_file_path)
+message(paste0("Cumulative GQ distribution plot exported to '", output_png_file_path, "'"))
 
 #Normalised cumulative GQ distribution plot
-norm.gq.cum_dist.output_png_file_path <- file.path(output_dir_path, 
-                                                   paste0(output_file_name.prefix, 
-                                                          ".norm.gq_cum_dist.png"))
-export_plot_to_png(samples.norm.gq.cum_dist.plot, norm.gq.cum_dist.output_png_file_path)
+samples.norm.gq.cum_dist.plot <- plot_gq_dist(vcf.samples.norm.gq.dist.dt, 
+                                              is_plot_cum = TRUE, 
+                                              is_norm = TRUE)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".norm.gq_cum_dist.png"))
+export_plot_to_png(samples.norm.gq.cum_dist.plot, output_png_file_path)
 message(paste0("Normalised cumulative GQ distribution plot exported to '", 
-               norm.gq.cum_dist.output_png_file_path, "'"))
+               output_png_file_path, "'"))
 
 #GQ density plot
-gq.density.output_png_file_path <- file.path(output_dir_path, 
-                                             paste0(output_file_name.prefix, 
-                                                    ".gq_density.png"))
-export_plot_to_png(samples.gq.density.plot, gq.density.output_png_file_path)
-message(paste0("GQ density plot exported to '", gq.dist.output_png_file_path, "'"))
+samples.gq.density.plot <- plot_gq_density(samples.var.gq.dt)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".gq_density.png"))
+export_plot_to_png(samples.gq.density.plot, output_png_file_path)
+message(paste0("GQ density plot exported to '", output_png_file_path, "'"))
+
+#GQ distribution histogram
+samples.gq.dist.histo.plot <- plot_gq_dist(vcf.samples.gq.dist.dt, 
+                                           is_histo = TRUE)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".gq_dist.histo.png"))
+export_plot_to_png(samples.gq.dist.histo.plot, output_png_file_path)
+message(paste0("Normalised GQ distribution histogram exported to '", 
+               output_png_file_path, "'"))
+
+#Normalised GQ distribution histogram
+samples.norm.gq.dist.histo.plot <- plot_gq_dist(vcf.samples.norm.gq.dist.dt, 
+                                                is_norm = TRUE,
+                                                is_histo = TRUE)
+output_png_file_path <- file.path(output_dir_path, 
+                                  paste0(output_file_name.prefix, 
+                                         ".norm.gq_dist.histo.png"))
+export_plot_to_png(samples.norm.gq.dist.histo.plot, output_png_file_path)
+message(paste0("Normalised GQ distribution histogram exported to '", 
+               output_png_file_path, "'"))
 
 message("Process completed")
 
