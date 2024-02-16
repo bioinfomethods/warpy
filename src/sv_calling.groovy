@@ -70,7 +70,7 @@ filter_sv_calls = {
 
             bash $output.sh > $output.vcf.gz.prefix
 
-            vcfsort $input.vcf | bgziptabix $output.vcf.gz
+            vcfsort $output.vcf.gz.prefix | bgziptabix $output.vcf.gz
         """
     }
 }
