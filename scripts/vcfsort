@@ -1,0 +1,61 @@
+#!/bin/bash
+# Sort VCF using shell script
+
+DEFAULT_TMP_DIR="/tmp"
+TMP_DIR=$DEFAULT_TMP_DIR
+THREADS=1
+VCF_FILES=()
+
+while [ $# -gt 0 ]
+do
+    case $1 in
+        -T)
+            shift
+            if [[ $# -gt 0 && ! $1 == -* ]]; then
+                TMP_DIR=$1
+                shift
+            fi
+            ;;
+        -N)
+            shift
+            if [[ $# -gt 0 && $1 =~ ^[0-9]+$ ]]; then
+                THREADS=$1
+                shift
+            fi
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            VCF_FILES+=($1)
+            shift
+            ;;
+    esac
+done
+
+if [ ${#VCF_FILES[@]} -eq 0 ]; then
+    echo "No VCF file specified. Program exits." >&2
+    exit 0
+fi
+
+if [ ! -d $TMP_DIR ]; then
+    echo "Warning: $TMP_DIR does not exist. Using $DEFAULT_TMP_DIR for sorting." >&2
+    TMP_DIR=$DEFAULT_TMP_DIR
+fi
+
+if [ $THREADS -le 1 ]; then
+    THREADS=1
+fi
+
+SORT_CMD="awk '/^#/ { print; next } { exit }' ${VCF_FILES[0]}; cat ${VCF_FILES[*]} | grep -v \"^#\" | sort -k1,1d -k2,2n"
+
+if [ $TMP_DIR != $DEFAULT_TMP_DIR ]; then
+    SORT_CMD="$SORT_CMD -T $TMP_DIR"
+fi
+
+if [ $THREADS -gt 1 ]; then
+    SORT_CMD="$SORT_CMD --parallel=$THREADS"
+fi
+
+eval "$SORT_CMD"
