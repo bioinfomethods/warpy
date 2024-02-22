@@ -2,14 +2,25 @@
 title 'Warpy - Oxford Nanopore Super High Accuracy Pipeline'
 
 options {
-    fast5_dir 'Directory containig FAST5 files', args:1, type: File, required: true
+    input_dir 'Directory containig FAST5/POD5/BAM files', args:1, type: File, required: true
     sample 'Name of sample', args:1, type: String, required: true
     targets 'Target regions to call variants in', args:1, type: File, required: true
     sex 'Sample sex (required for STR analysis)', args:1, type: String, required: true
 }
 
-List input_files = opts.fast5_dir.listFiles().grep { it.name.endsWith('.fast5') || it.name.endsWith('.pod5') }
-input_pattern = input_files.any { it.name.endsWith('.fast5') } ? '%.fast5' : '%.pod5'
+List input_files = opts.input_dir.listFiles().grep { it.name.endsWith('.fast5') || it.name.endsWith('.pod5') }
+List input_bam_files = opts.input_dir.listFiles().grep { it.name.endsWith('.bam') }
+
+if (input_files.size > 0) {
+    input_pattern = input_files.any { it.name.endsWith('.fast5') } ? '%.fast5' : '%.pod5'
+    input_data_type = 'x5'
+}
+else if (input_bam_files.size > 0) {
+    input_pattern = ''
+    input_data_type = 'bam'
+}
+else
+    throw new bpipe.PipelineError("No recognised files found in input directory $opts.input_dir")
 
 // to make pipeline generic to work for either fast5 or blow5,
 // define virtual file extentions 'x5' that can map to either
@@ -42,7 +53,11 @@ load 'sv_calling.groovy'
 load 'str_calling.groovy'
    
 init = {
-    println "\nProcessing ${input_files.size()} input fast5 files ...\n"
+    if (input_data_type == 'x5')
+        println "\nProcessing ${input_files.size()} input fast5/pod5 files ...\n"
+    else
+        println "\nProcessing ${input_bam_files.size()} input BAM files ...\n"
+
     println "\nUsing base calling model: $params.drd_model"
     println "\nUsing clair3 model: $clair3_model"
     
@@ -53,9 +68,16 @@ init = {
     }
 }
 
+basecall_align_reads = segment {
+    make_mmi + input_pattern * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } + dorado + minimap2_align ] + merge_pass_calls
+}
+
+forward_sample_bam = {
+    forward input_bam_files[0]
+}
+
 run(input_files) {
-    init + 
-    make_mmi + input_pattern * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } + dorado + minimap2_align ] + merge_pass_calls + read_stats +
+    init + basecall_align_reads.when { input_data_type == 'x5' } + forward_sample_bam.when { input_data_type == 'bam' } + read_stats +
     [
          snp_calling : make_clair3_chunks  * [ pileup_variants ] + aggregate_pileup_variants +
          [ 
