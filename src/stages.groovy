@@ -127,36 +127,6 @@ read_stats = {
     }
 }
 
-/*
-read_stats = {
-
-    def FASTCAT_CONDA_ENV = 'fastcat'
-
-    output.dir = "qc/bamstats"
-
-    produce("${opts.sample}.readstats.tsv.gz") {
-        exec """
-            set -uo pipefail
-
-            export SHELL="/opt/homebrew/bin/bash"
-
-            __conda_setup="\$('/opt/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
-
-            eval "$__conda_setup"
-
-            conda activate $FASTCAT_CONDA_ENV
-
-            bamstats --threads 3 $input.bam | gzip > $output.gz
-
-            conda deactivate
-
-            unset __conda_setup
-        """
-    }
-}
-*/
-
-
 make_clair3_chunks = {
 
     output.dir = 'clair_output/tmp' 
@@ -175,6 +145,7 @@ make_clair3_chunks = {
                 --bed_fn $opts.targets
                 --output_fn_prefix clair_output
                 --ref_fn $REF
+                --bed_fn $opts.targets
                 --vcf_fn $vcf_fn
                 --ctg_name $ctg_name
                 --chunk_num 0
@@ -192,7 +163,6 @@ make_clair3_chunks = {
                 --snp_min_af $calling.snp_min_af
                 --indel_min_af $calling.indel_min_af
                 --min_contig_size $min_contig_size
-
         """
     }
     
@@ -419,10 +389,6 @@ evaluate_candidates = {
                 --indel_min_af $calling.indel_min_af
                 --platform ont 
                 --phased_vcf_fn $input.vcf.gz
-
-            conda deactivate
-
-            unset __conda_setup
         """
     }
 }
