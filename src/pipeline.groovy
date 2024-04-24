@@ -69,7 +69,8 @@ init = {
 }
 
 basecall_align_reads = segment {
-    make_mmi + input_pattern * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } + dorado + minimap2_align ] + merge_pass_calls
+    make_mmi.when { ! new File(REF_MMI).exists() } + input_pattern * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
+        dorado + minimap2_align ] + merge_pass_calls
 }
 
 forward_sample_bam = {

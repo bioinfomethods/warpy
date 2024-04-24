@@ -28,9 +28,9 @@ dorado = {
 }
 
 make_mmi = {
-    output.dir = 'ref'
+    output.dir = BASE + "/data/hg38"
 
-    produce('ref.mmi') {
+    produce(REF_MMI) {
         exec """
             $tools.MINIMAP2 -t ${threads} -x map-ont -d $output ${REF}
         """
@@ -45,7 +45,7 @@ minimap2_align = {
 
     exec """
         $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
-            | $tools.MINIMAP2 -y -t $threads -ax map-ont $input.mmi - 
+            | $tools.MINIMAP2 -y -t $threads -ax map-ont $REF_MMI - 
             | $SAMTOOLS sort -@ $threads
             | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
             | $SAMTOOLS view -e '[qs] >= $calling.qscore_filter' -o $output.pass.bam -
