@@ -10,6 +10,7 @@ libs=["$BASE/lib/groovy-ngs-utils.jar"]
 parameters {
     setProperty('BASE',BASE)
     REF="$REF_BASE/Homo_sapiens_assembly38.fasta"
+    REF_MMI="$BASE/data/hg38/ref.mmi"
 
     tools {
         // Full path to samtools
