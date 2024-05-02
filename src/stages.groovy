@@ -15,15 +15,17 @@ dorado = {
 
     output.dir='dorado'
     
-    uses(dorados: 1) {
-        exec """
-            set -o pipefail
+    transform('.pod5') to ('.ubam') {
+        uses(dorados: 1) {
+            exec """
+                set -o pipefail
 
-            ln -fs ${file(input.x5).absolutePath} $output.dir/${file(input.x5).name}
+                ln -fs ${file(input.x5).absolutePath} $output.dir/${file(input.x5).name}
 
-            $tools.DORADO basecaller -b 128 $DRD_MODELS_PATH/$model.params.drd_model $output.dir | 
-                $tools.SAMTOOLS view -b -o $output.ubam -
-        """
+                $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir/${file(input.x5).name} | 
+                    $tools.SAMTOOLS view -b -o $output.ubam -
+            """
+        }
     }
 }
 
