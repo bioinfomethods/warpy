@@ -15,15 +15,17 @@ dorado = {
 
     output.dir='dorado'
     
-    uses(dorados: 1) {
-        exec """
-            set -o pipefail
+    transform('.pod5') to ('.ubam') {
+        uses(dorados: 1) {
+            exec """
+                set -o pipefail
 
-            ln -fs ${file(input.x5).absolutePath} $output.dir/${file(input.x5).name}
+                ln -fs ${file(input.x5).absolutePath} $output.dir/${file(input.x5).name}
 
-            $tools.DORADO basecaller -b 128 $DRD_MODELS_PATH/$model.params.drd_model $output.dir | 
-                $tools.SAMTOOLS view -b -o $output.ubam -
-        """
+                $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir/${file(input.x5).name} | 
+                    $tools.SAMTOOLS view -b -o $output.ubam -
+            """
+        }
     }
 }
 
@@ -45,7 +47,7 @@ minimap2_align = {
 
     exec """
         $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
-            | $tools.MINIMAP2 -y -t $threads -ax map-ont $REF_MMI - 
+            | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${opts.sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${opts.sample}" $REF_MMI - 
             | $SAMTOOLS sort -@ $threads
             | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
             | $SAMTOOLS view -e '[qs] >= $calling.qscore_filter' -o $output.pass.bam -
@@ -63,6 +65,8 @@ merge_pass_calls = {
         exec """
             $tools.SAMTOOLS merge $output.bam $inputs.pass.bam 
             -f 
+            -c 
+            -p 
             --no-PG 
             --write-index 
             --reference $REF 
