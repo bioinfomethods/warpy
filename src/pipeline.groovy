@@ -51,6 +51,7 @@ println "The chromosomes for STR calling are: $str_chrs"
 load 'stages.groovy'
 load 'sv_calling.groovy'
 load 'str_calling.groovy'
+load 'methylation.groovy'
    
 init = {
     if (input_data_type == 'x5')
@@ -90,7 +91,9 @@ run(input_files) {
          ] +
             chr(1..22, 'X','Y') * [ merge_pileup_and_full_vars ] + aggregate_all_variants,
              
-         sv_calling: mosdepth + filterBam + sniffles2 + filter_sv_calls ]/*,
+         sv_calling: mosdepth + filterBam + sniffles2 + filter_sv_calls,
+
+         methylation: bam2bedmethyl ]/*,
          
          str_calling: chr(*str_chrs) *  [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf
     ]

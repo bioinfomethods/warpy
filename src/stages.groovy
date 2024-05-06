@@ -22,7 +22,7 @@ dorado = {
 
                 ln -fs ${file(input.x5).absolutePath} $output.dir/${file(input.x5).name}
 
-                $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir/${file(input.x5).name} | 
+                $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir/${file(input.x5).name} --modified-bases 5mCG_5hmCG | 
                     $tools.SAMTOOLS view -b -o $output.ubam -
             """
         }
