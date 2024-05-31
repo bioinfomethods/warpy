@@ -20,20 +20,6 @@ convert_fast5_to_pod5 = {
 
 dorado = {
 
-    transform('*.fast5') to('.pod5') {
-
-   
-    uses(dorados: 1) {
-        exec """
-            set -o pipefail
-
-            $tools.POD5 convert fast5 $input.fast5 --output $output.pod5
-        """
-    }
-}
-
-dorado = {
-
     output.dir='dorado/' + branch.name
 
     transform('.x5') to ('.ubam') {
@@ -157,7 +143,7 @@ make_clair3_chunks = {
                 --vcf_fn $vcf_fn
                 --ctg_name $ctg_name
                 --chunk_num 0
-                --chunk_size 5000000
+                --chunk_size 20000000
                 --include_all_ctgs $include_all_ctgs
                 --threads $threads
                 --pypy $tools.PYPY
@@ -181,7 +167,7 @@ make_clair3_chunks = {
     
     println "Forwarding ${chunks.size()} chunks (first 10): " + chunks.take(10)
     
-    forwardSplit(chunks)
+    forwardSplit(chunks.take(4))
 }
 
 
@@ -491,67 +477,3 @@ aggregate_all_variants = {
         """
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

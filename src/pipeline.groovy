@@ -96,7 +96,7 @@ run(input_files) {
                     create_candidates + '%.bed' * [ evaluate_candidates ] ] 
                 + aggregate_full_align_variants
          ] +
-            chr(1..22, 'X','Y') * [ merge_pileup_and_full_vars ] + aggregate_all_variants ],
+            chr(1..22, 'X','Y') * [ merge_pileup_and_full_vars ] + aggregate_all_variants ,
              
          sv_calling: mosdepth + filterBam + sniffles2 + filter_sv_calls,
 
