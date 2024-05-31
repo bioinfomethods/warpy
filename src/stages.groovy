@@ -1,4 +1,11 @@
 
+
+check_tools = {
+    assert tools.POD5 != null : "pod5 utility is not configured"
+    
+    
+}
+
 convert_fast5_to_pod5 = {
     output.dir = 'pod5'
 
@@ -96,6 +103,7 @@ mosdepth = {
     produce("${opts.sample}.regions.bed.gz",
             "${opts.sample}.mosdepth.bed",
             "${opts.sample}.mosdepth.global.dist.txt",
+            "${opts.sample}.mosdepth.summary.txt",
             "${opts.sample}.thresholds.bed.gz") {
 
         exec """
