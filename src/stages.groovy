@@ -192,37 +192,40 @@ pileup_variants = {
     var GVCF : false
     
     produce("${opts.sample}_${branch.metadata.chr}_${branch.metadata.chunk_id}.vcf", "${opts.sample}_${branch.metadata.chr}_${branch.metadata.chunk_id}.txt") {
-        exec """
-            set -uo pipefail
 
-            export REF_PATH=cram_cache/%2s/%2s/%s
+        uses(clair3: 1) {
+            exec """
+                set -uo pipefail
 
-            python $tools.CLAIR3/clair3.py CallVariantsFromCffi
-                --chkpnt_fn $CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/pileup
-                --bam_fn $input.bam
-                --bed_fn $opts.targets
-                --call_fn $output.vcf.optional
-                --ref_fn $REF
-                --ctgName $branch.metadata.chr
-                --chunk_id $branch.metadata.chunk_id
-                --chunk_num $branch.metadata.total_chunks
-                --platform ont 
-                --fast_mode False
-                --snp_min_af $calling.snp_min_af
-                --indel_min_af $calling.indel_min_af
-                --minMQ $calling.min_mq
-                --minCoverage $calling.min_cov
-                --call_snp_only False
-                --gvcf $GVCF
-                --enable_long_indel False
-                --temp_file_dir gvcf_tmp_path
-                --pileup
+                export REF_PATH=cram_cache/%2s/%2s/%s
 
-            touch -a $output.vcf.optional
+                python $tools.CLAIR3/clair3.py CallVariantsFromCffi
+                    --chkpnt_fn $CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/pileup
+                    --bam_fn $input.bam
+                    --bed_fn $opts.targets
+                    --call_fn $output.vcf.optional
+                    --ref_fn $REF
+                    --ctgName $branch.metadata.chr
+                    --chunk_id $branch.metadata.chunk_id
+                    --chunk_num $branch.metadata.total_chunks
+                    --platform ont 
+                    --fast_mode False
+                    --snp_min_af $calling.snp_min_af
+                    --indel_min_af $calling.indel_min_af
+                    --minMQ $calling.min_mq
+                    --minCoverage $calling.min_cov
+                    --call_snp_only False
+                    --gvcf $GVCF
+                    --enable_long_indel False
+                    --temp_file_dir gvcf_tmp_path
+                    --pileup
+
+                touch -a $output.vcf.optional
 
 
-            echo "`date` : succesfully called variants" > $output.txt
-        """
+                echo "`date` : succesfully called variants" > $output.txt
+            """
+            }
     }
 }
 
