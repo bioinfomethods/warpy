@@ -1,5 +1,37 @@
 
 
+ext = { File file ->
+    file.name.tokenize('.')[-1]
+}
+
+scanInputDirectories = { args ->
+
+if(args.size()==0) 
+    throw new bpipe.PipelineError(
+        """
+        No data directories were provided to analyse. 
+
+        Please provide one or more data directories containing pod5, fast5 or blow5 files as arguments.
+        """
+    )
+    
+    
+nonDirectories = args.grep { ! new File(it).directory }    
+if(nonDirectories) {
+       throw new bpipe.PipelineError(
+        """
+        One or more arguments given was not a valid directory. Please pass directories containing files for analysis as arguments.
+
+        Non-directory arguments: ${nonDirectories.join(", ")}
+        """
+    )
+ 
+}
+
+List input_files = args.collect { println(it); new File(it) }*.listFiles().flatten().grep { println(it); ext(it) in ['fast5','blow5','pod5','bam']  }
+
+}
+
 check_tools = {
     assert tools.POD5 != null : "pod5 utility is not configured"
     

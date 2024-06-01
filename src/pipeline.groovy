@@ -1,4 +1,6 @@
 
+import gngs.*
+
 title 'Warpy - Oxford Nanopore Super High Accuracy Pipeline'
 
 options {
@@ -7,20 +9,13 @@ options {
     sex 'Sample sex (required for STR analysis)', args:1, type: String, required: true
 }
 
-ext = { File file ->
-    file.name.tokenize('.')[-1]
-}
+load 'stages.groovy'
+load 'sv_calling.groovy'
+load 'str_calling.groovy'
+load 'methylation.groovy'
 
-if(args.size()==0) 
-    throw new bpipe.PipelineError(
-        """
-        No data directories were provided to analyse. 
 
-        Please provide one or more data directories containing pod5, fast5 or blow5 files as arguments.
-        """
-    )
-
-List input_files = args.collect { new File(it) }*.listFiles().flatten().grep { ext(it) in ['fast5','blow5','pod5']  }
+input_files = scanInputDirectories(args)
 
 by_extension = input_files.groupBy { ext(it) }
 if(by_extension.size() > 1) 
@@ -31,6 +26,8 @@ input_pattern = '%' + by_extension*.key[0]
 // to make pipeline generic to work for either fast5 or blow5,
 // define virtual file extentions 'x5' that can map to either
 filetype x5 : ['pod5', 'blow5','fast5']
+
+input_data_type = (by_extension.bam ? 'bam' : 'x5')
 
 Map params = model.params
 
@@ -53,11 +50,6 @@ targets = bed(opts.targets)
 str_chrs = new File(calling.repeats_bed).readLines()*.tokenize()*.getAt(0).unique()
 
 println "The chromosomes for STR calling are: $str_chrs"
-
-load 'stages.groovy'
-load 'sv_calling.groovy'
-load 'str_calling.groovy'
-load 'methylation.groovy'
 
 dorado_group_size = 10
 
