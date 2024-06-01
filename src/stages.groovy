@@ -86,7 +86,7 @@ minimap2_align = {
 
     exec """
         $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
-            | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${opts.sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${opts.sample}" $REF_MMI - 
+            | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
             | $SAMTOOLS sort -@ $threads
             | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
             | $SAMTOOLS view -e '[qs] >= $calling.qscore_filter' -o $output.pass.bam -
@@ -100,7 +100,7 @@ merge_pass_calls = {
 
     output.dir = 'align'
 
-    produce(opts.sample + '.pass.bam') {
+    produce(sample + '.pass.bam') {
         exec """
             $tools.SAMTOOLS merge $output.bam $inputs.pass.bam 
             -f 
@@ -118,11 +118,11 @@ mosdepth = {
    
     output.dir = 'qc/mosdepth'
     
-    produce("${opts.sample}.regions.bed.gz",
-            "${opts.sample}.mosdepth.bed",
-            "${opts.sample}.mosdepth.global.dist.txt",
-            "${opts.sample}.mosdepth.summary.txt",
-            "${opts.sample}.thresholds.bed.gz") {
+    produce("${sample}.regions.bed.gz",
+            "${sample}.mosdepth.bed",
+            "${sample}.mosdepth.global.dist.txt",
+            "${sample}.mosdepth.summary.txt",
+            "${sample}.thresholds.bed.gz") {
 
         exec """
             export REF_PATH=$REF
@@ -137,7 +137,7 @@ mosdepth = {
             -b $output.mosdepth.bed
             --thresholds 1,10,20,30
             --no-per-base
-            $output.dir/${opts.sample}
+            $output.dir/${sample}
             $input.bam
         """
     }
@@ -146,7 +146,7 @@ mosdepth = {
 read_stats = {
     output.dir = "qc/bamstats"
 
-    produce("${opts.sample}.readstats.tsv.gz") {
+    produce("${sample}.readstats.tsv.gz") {
         exec """
             $tools.BAMSTATS --threads $threads $input.bam | gzip > $output.gz
         """
@@ -164,7 +164,7 @@ pileup_variants = {
     
     gngs.Region region = new gngs.Region(clair_chunk.toString())
     
-    produce("${opts.sample}_${region.chr}_${region.from}.vcf", "${opts.sample}_${region.chr}_${region.from}.txt") {
+    produce("${sample}_${region.chr}_${region.from}.vcf", "${sample}_${region.chr}_${region.from}.txt") {
 
 
         uses(clair3: 1) {
@@ -205,18 +205,18 @@ pileup_variants = {
 
 aggregate_pileup_variants = {
     
-    output.dir="variants/$opts.sample"
+    output.dir="variants/$sample"
     
-    from('CONTIGS') produce("${opts.sample}.aggregate.pileup.vcf.gz") {
+    from('CONTIGS') produce("${sample}.aggregate.pileup.vcf.gz") {
         exec """
             set -uo pipefail
 
             $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
                 --contigs_fn $input
                 --input_dir ${file(input1.vcf).parentFile.path}
-                --vcf_fn_prefix $opts.sample
+                --vcf_fn_prefix $sample
                 --output_fn $output.vcf.gz.prefix
-                --sampleName $opts.sample
+                --sampleName $sample
                 --ref_fn $REF
                 --cmd_fn $output.dir/tmp/CMD
 
@@ -232,7 +232,7 @@ aggregate_pileup_variants = {
 
 select_het_snps = {
 
-    branch.dir="split_folder/$opts.sample"
+    branch.dir="split_folder/$sample"
     
     transform('.vcf.gz') to('.het_snps.vcf.gz') {
         exec """
@@ -288,12 +288,18 @@ phase_contig = {
 
 get_qual_filter = {
     
-    output.dir =  "variants/$opts.sample"
+    doc """
+        Full alignment calling is expensive, so only a configurable proportion of variants are selected for it.
+        The proportion is fixed, but to make it easier to implement downstream, this step determines the appropriate
+        qual score threshold to use to get the top X% of low quality variants in subsequent steps.
+        """
+    
+    output.dir =  "variants/$sample"
     
     exec """
         set -uo pipefail
 
-        echo "[INFO] 5/7 Select candidates for full-alignment calling"
+        echo "[INFO] 5/7 Determine qual score cutoffs to to select fixed proportion of candidates for full-alignment calling"
 
         bgzip -fdc $input.vcf.gz |
         $tools.PYPY $tools.CLAIR3/clair3.py SelectQual
@@ -302,7 +308,7 @@ get_qual_filter = {
                 --ref_pct_full $calling.ref_pct_full
                 --platform ont 
 
-        mv $output.dir/qual $output.vcf
+        mv $output.dir/qual $output.qual.txt
     """
 }
 
@@ -317,7 +323,7 @@ create_candidates = {
         https://github.com/HKU-BAL/Clair3/blob/329d09b39c12b6d8d9097aeb1fe9ec740b9334f6/scripts/clair3.sh#L218
     """
     
-    output.dir = branch.dir + '/candidates/' + chr
+    output.dir = branch.dir + "/clair3_output/full_aln_candidates/$sample/" + chr
 
     from('vcf.gz') produce('*.bed') {
         exec """
@@ -352,7 +358,7 @@ evaluate_candidates = {
 
     output.dir = "variants/full_alignments"
     
-    produce("${opts.sample}.${bed_prefix}.full_alignment.vcf") {
+    produce("${sample}.${bed_prefix}.full_alignment.vcf") {
         exec """
             set -uo pipefail
 
@@ -362,7 +368,7 @@ evaluate_candidates = {
                 --chkpnt_fn $CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/full_alignment
                 --bam_fn $input.bam 
                 --call_fn $output.vcf
-                --sampleName ${opts.sample}
+                --sampleName ${sample}
                 --ref_fn $REF
                 --full_aln_regions $input.bed
                 --ctgName $chr
@@ -380,9 +386,9 @@ evaluate_candidates = {
 
 aggregate_full_align_variants = {
     
-    output.dir="variants/$opts.sample"
+    output.dir="variants/$sample"
     
-    from('CONTIGS', '*.full_alignment.vcf') produce("${opts.sample}.full_alignment.vcf.gz"){
+    from('CONTIGS', '*.full_alignment.vcf') produce("${sample}.full_alignment.vcf.gz"){
         exec """
 
             echo "First input VCF is $input1.vcf"
@@ -390,7 +396,7 @@ aggregate_full_align_variants = {
             $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
                 --input_dir ${file(input1.vcf).parentFile.path}
                 --output_fn $output.vcf.gz.prefix
-                --sampleName $opts.sample
+                --sampleName $sample
                 --ref_fn $REF
                 --contigs_fn $input1
                 --cmd_fn $output.dir/tmp/CMD
@@ -408,7 +414,7 @@ merge_pileup_and_full_vars = {
     
     output.dir = "variants"
 
-    produce("${opts.sample}.merged_methods.${chr}.vcf.gz") {
+    produce("${sample}.merged_methods.${chr}.vcf.gz") {
         exec """
 
             echo "[INFO] 7/7 Merge pileup VCF and full-alignment VCF"
@@ -436,9 +442,9 @@ merge_pileup_and_full_vars = {
 
 aggregate_all_variants = {
     
-    output.dir = "variants/${opts.sample}"
+    output.dir = "variants/${sample}"
 
-    from("CONTIGS") produce("${opts.sample}.wf_snp.vcf.gz") {
+    from("CONTIGS") produce("${sample}.wf_snp.vcf.gz") {
         exec """
 
             rm -rf $output.dir/merge_output
@@ -449,9 +455,9 @@ aggregate_all_variants = {
 
             $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
                 --input_dir variants
-                --vcf_fn_prefix $opts.sample
+                --vcf_fn_prefix $sample
                 --output_fn $output.vcf.gz.prefix
-                --sampleName $opts.sample
+                --sampleName $sample
                 --ref_fn $REF
                 --contigs_fn $input1
                 --cmd_fn $output.dir/tmp/CMD

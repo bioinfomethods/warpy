@@ -23,15 +23,15 @@ sniffles2 = {
     
     var sniffles_args : ''
     
-    branch.dir = "sv/$opts.sample"
+    branch.dir = "sv/$sample"
 
-    produce("${opts.sample}.sniffles.vcf") {
+    produce("${sample}.sniffles.vcf") {
         exec """
             export REF_PATH=$REF
 
             sniffles
                 --threads $threads
-                --sample-id ${opts.sample}
+                --sample-id ${sample}
                 --output-rnames
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.bam
@@ -54,7 +54,7 @@ filter_sv_calls = {
 //        def sv_types_joined = params.sv_types.split(',').join(" ")
     
 
-    from('*.regions.bed.gz') produce("${opts.sample}.wf_sv.vcf.gz", "${opts.sample}_filter.sh") {
+    from('*.regions.bed.gz') produce("${sample}.wf_sv.vcf.gz", "${sample}_filter.sh") {
         exec """
             set -o pipefail
 
@@ -85,7 +85,7 @@ sort_sv_vcf = {
 //    output:
 //        path "*.wf_sv.vcf", emit: vcf
     
-    produce("${opts.sample}.wf_sv.vcf.gz") {
+    produce("${sample}.wf_sv.vcf.gz") {
         exec """
             vcfsort $input.vcf | bgziptabix $output.vcf.gz
         """

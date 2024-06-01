@@ -2,16 +2,16 @@ import groovy.json.JsonBuilder
 
 call_str = {
 
-    branch.dir = "str/$opts.sample/${chr}"
+    branch.dir = "str/$sample/${chr}"
 
-    produce("${opts.sample}.${chr}.straglr.tsv", "${opts.sample}.${chr}.straglr.vcf.gz") {
+    produce("${sample}.${chr}.straglr.tsv", "${sample}.${chr}.straglr.vcf.gz") {
         exec """
 
             { grep $chr -Fw $calling.repeats_bed || true; } > $output.dir/repeats_subset.bed
 
             if [[ -s $output.dir/repeats_subset.bed ]]; then
                 straglr-genotype --loci $output.dir/repeats_subset.bed
-                    --sample ${opts.sample}
+                    --sample ${sample}
                     --tsv $output.tsv
                     -v $output.vcf.gz.prefix
                     --sex ${opts.sex} $input.bam $REF
@@ -48,7 +48,7 @@ merge_str_tsv = {
 
     output.dir = 'str'
 
-    produce("${opts.sample}.plot.tsv", "${opts.sample}.stranger.tsv", "${opts.sample}.straglr.tsv") {
+    produce("${sample}.plot.tsv", "${sample}.stranger.tsv", "${sample}.straglr.tsv") {
         exec """
             awk 'NR == 1 || FNR > 1' $input.plot.tsv > $output.plot.tsv
 
@@ -63,7 +63,7 @@ merge_str_vcf = {
 
     output.dir = 'str'
 
-    produce("${opts.sample}.wf_str.vcf.gz") {
+    produce("${sample}.wf_str.vcf.gz") {
         exec """
             bcftools concat $inputs.vcf.gz > $output.vcf.gz.prefix
 
@@ -84,12 +84,12 @@ merge_str_vcf = {
 //
 //    new File("str/params.json").text = new JsonBuilder(calling).toPrettyString()
 //
-//    produce("${opts.sample}.wf-human-str-report.html") {
+//    produce("${sample}.wf-human-str-report.html") {
 //        exec """
 //            $BASE/scripts/workflow-glue report_str
 //                -o $output.html
 //                --params str/params.json
-//                --sample_name ${opts.sample}
+//                --sample_name ${sample}
 //                --version versions.txt
 //                --vcf $input.vcf.gz
 //                --straglr $input.straglr.tsv

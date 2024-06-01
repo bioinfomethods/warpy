@@ -5,7 +5,7 @@ bam2bedmethyl = {
     
     output.dir = "methyl"
 
-    produce("${opts.sample}.methyl.cpg.bed.gz", "${opts.sample}.methyl.cpg.log.txt") {
+    produce("${sample}.methyl.cpg.bed.gz", "${sample}.methyl.cpg.log.txt") {
         exec """
             modkit pileup
                 --preset traditional
@@ -13,7 +13,7 @@ bam2bedmethyl = {
                 --only-tabs
                 --log-filepath $output.txt
                 --threads $threads $regionFlag
-                --prefix $output.dir/${opts.sample}.methyl ${modkit_args} $input.bam -
+                --prefix $output.dir/${sample}.methyl ${modkit_args} $input.bam -
                 | bgzip -c > $output.bed.gz
         """
     }
@@ -38,14 +38,14 @@ modbam2bed  = {
     
     output.dir = "methyl"
 
-    produce("${opts.sample}.methyl.cpg.bed.gz", "${opts.sample}.methyl.cpg.acc.bed.gz") {
+    produce("${sample}.methyl.cpg.bed.gz", "${sample}.methyl.cpg.acc.bed.gz") {
         exec """
             modbam2bed
                 -e -m 5mC --cpg -t $threads $regionFlag
                 $REF
                 $input.bam
                 --aggregate
-                --prefix $output.dir/${opts.sample}.methyl ${modbam2bed_args}
+                --prefix $output.dir/${sample}.methyl ${modbam2bed_args}
                 | bgzip -c > $output.bed.gz
 
             bgzip -f $output2.bed.gz.prefix
