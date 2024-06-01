@@ -153,63 +153,19 @@ read_stats = {
     }
 }
 
-make_clair3_chunks = {
-
-    output.dir = 'clair_output/tmp' 
-    
-    var vcf_fn : 'EMPTY',
-        ctg_name : 'EMPTY',
-        include_all_ctgs : false,
-        min_contig_size : 0
-
-    produce('CHUNK_LIST', 'CONTIGS') {
-        exec """
-            set -uo pipefail
-
-            python $tools.CLAIR3/clair3.py CheckEnvs
-                --bam_fn $input.bam
-                --bed_fn $opts.targets
-                --output_fn_prefix clair_output
-                --ref_fn $REF
-                --bed_fn $opts.targets
-                --vcf_fn $vcf_fn
-                --ctg_name $ctg_name
-                --chunk_num 0
-                --chunk_size 20000000
-                --include_all_ctgs $include_all_ctgs
-                --threads $threads
-                --pypy $tools.PYPY
-                --samtools $tools.SAMTOOLS
-                --whatshap $tools.WHATSHAP
-                --parallel $tools.PARALLEL
-                --qual 2
-                --sampleName $opts.sample
-                --var_pct_full $calling.var_pct_full
-                --ref_pct_full $calling.ref_pct_full
-                --snp_min_af $calling.snp_min_af
-                --indel_min_af $calling.indel_min_af
-                --min_contig_size $min_contig_size
-        """
-    }
-    
-    def chunks = 
-        file(output)
-            .readLines()*.tokenize() // .take(3)
-            .collectEntries { [it[0] + "_" + it[1], [chr: it[0], chunk_id:it[1], total_chunks:it[2]]] }
-    
-    println "Forwarding ${chunks.size()} chunks (first 10): " + chunks.take(10)
-    
-    forwardSplit(chunks.take(4))
-}
-
-
 pileup_variants = {
     
     output.dir="clair_output/pileup"
 
     var GVCF : false
     
-    produce("${opts.sample}_${branch.metadata.chr}_${branch.metadata.chunk_id}.vcf", "${opts.sample}_${branch.metadata.chr}_${branch.metadata.chunk_id}.txt") {
+    
+    println("Clair chunk: " + clair_chunk)
+    
+    gngs.Region region = new gngs.Region(clair_chunk.toString())
+    
+    produce("${opts.sample}_${region.chr}_${region.from}.vcf", "${opts.sample}_${region.chr}_${region.from}.txt") {
+
 
         uses(clair3: 1) {
             exec """
@@ -223,9 +179,9 @@ pileup_variants = {
                     --bed_fn $opts.targets
                     --call_fn $output.vcf.optional
                     --ref_fn $REF
-                    --ctgName $branch.metadata.chr
-                    --chunk_id $branch.metadata.chunk_id
-                    --chunk_num $branch.metadata.total_chunks
+                    --ctgName $region.chr
+                    --ctgStart $region.from
+                    --ctgEnd $region.to
                     --platform ont 
                     --fast_mode False
                     --snp_min_af $calling.snp_min_af
@@ -243,7 +199,7 @@ pileup_variants = {
 
                 echo "`date` : succesfully called variants" > $output.txt
             """
-            }
+        }
     }
 }
 

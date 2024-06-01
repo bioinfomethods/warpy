@@ -54,6 +54,14 @@ println "The chromosomes for STR calling are: $str_chrs"
 dorado_group_size = 10
 
 input_groups = input_files.collate(dorado_group_size).indexed().collectEntries { [ "dorado_group_" + it.key, it.value] }
+
+targets_by_chr = new gngs.BED(opts.targets).load().groupBy { it.chr }.collect { chr, List<Region> regions ->
+    new gngs.Region(chr, regions*.from.min(), regions*.to.max() )
+}
+
+contigs = channel(targets_by_chr*.chr.unique()).named('chr')
+
+target_channel = channel(targets_by_chr).named('clair_chunk')
    
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
@@ -65,6 +73,12 @@ init = {
             echo $VERSION > versions.txt
         """
     }
+    
+    produce("CONTIGS") {
+        groovy """
+            new File('CONTIGS').text = new gngs.BED("$opts.targets).load()*.chr.unique().join('\n') + '\n'
+        """
+    }
 }
 
 basecall_align_reads = segment {
@@ -73,22 +87,23 @@ basecall_align_reads = segment {
 }
 
 forward_sample_bam = {
-    forward input_bam_files[0]
+    forward inputs.bam
 }
 
 run(input_files) {
     init + check_tools + basecall_align_reads.when { input_data_type == 'x5' } + forward_sample_bam.when { input_data_type == 'bam' } + read_stats +
 
     [
-         snp_calling : make_clair3_chunks  * [ pileup_variants ] + aggregate_pileup_variants +
+         snp_calling : target_channel  * [ pileup_variants ] + aggregate_pileup_variants +
          [ 
                 get_qual_filter,
-                chr(1..22, 'X','Y') * [
+                contigs * [
                     select_het_snps + phase_contig,
-                    create_candidates + '%.bed' * [ evaluate_candidates ] ] 
+                    create_candidates + '%.bed' * [ evaluate_candidates ] 
+                ] 
                 + aggregate_full_align_variants
-         ] +
-            chr(1..22, 'X','Y') * [ merge_pileup_and_full_vars ] + aggregate_all_variants ,
+         ]  +
+            contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants ,
              
          sv_calling: mosdepth + filterBam + sniffles2 + filter_sv_calls,
 
