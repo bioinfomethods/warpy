@@ -114,7 +114,7 @@ basecall_align_reads = segment {
 
 forward_sample_bam = {
     
-    println "Forwarding bam file $input.bam for sample $sample"
+    // println "Forwarding bam file $input.bam for sample $sample"
     
     forward input.bam
 }
