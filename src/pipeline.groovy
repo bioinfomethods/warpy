@@ -15,11 +15,11 @@ load 'sv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
 
-Map meta =
+meta =
  file(opts.samples)
     .withReader { r -> Collections.synchronizedMap(new Yaml().load(r)) }
         .samples
-        .collectEntries { [ it.identifier,  it ] }
+        .collectEntries { [ it.identifier,  it ] } as Map
 
 println "Analysis samples are: " + meta*.key
     
@@ -56,7 +56,7 @@ input_data_type = (by_extension.bam ? 'bam' : 'x5')
 Map params = model.params
 
 DRD_MODELS_PATH="$BASE/models/dorado"
-CLAIR3_MODELS_PATH="$BASE/models/Clair3"
+CLAIR3_MODELS_PATH="$BASE/tools/Clair3/models"
 
 VERSION="1.0"
 
@@ -88,6 +88,11 @@ contigs = channel(targets_by_chr*.chr.unique()).named('chr')
 target_channel = channel(targets_by_chr).named('clair_chunk')
 
 sample_channel = channel(input_files).named('sample')
+
+// Set the family ids equal to sample id if no family id is provided
+meta.each { if(!it.value.family_id) it.value.family_id = it.value.identifier }
+
+family_channel = channel(meta*.value*.family_id).named('family')
    
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
@@ -119,11 +124,7 @@ forward_sample_bam = {
     forward input.bam
 }
 
-println(input_files*.value.flatten())
-
-show_bam = {
-    println "I will use bam $input.bam for $sample"
-}
+sample_gvcfs = Collections.synchronizedMap([:])
 
 run(input_files*.value.flatten()) {
     init + check_tools + 
@@ -154,5 +155,5 @@ run(input_files*.value.flatten()) {
          methylation: sample_channel * [ bam2bedmethyl ],
          
          str_calling: sample_channel * [ chr(*str_chrs) *  [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
-    ]
+    ]+ family_channel * [ combine_family_gvcfs + genotype_gvcfs ] 
 }

@@ -439,6 +439,8 @@ merge_pileup_and_full_vars = {
                 --ref_fn $REF
                 --ctgName $chr
         """
+        
+        sample_gvcfs.get(sample, []).add(output.gvcf)
     }
 }
 
@@ -471,6 +473,46 @@ aggregate_all_variants = {
             fi
 
             echo "[INFO] Finish calling, output file: $output.vcf.gz"
+        """
+    }
+}
+
+
+combine_family_gvcfs = {
+    
+    requires family : 'family to process'
+    
+    println(meta)
+    
+    def family_samples = meta*.value.grep { println(it);  it.family_id == family }
+    
+    println "Samples to process for $family are ${family_samples*.identifier}"
+    
+    def family_gvcfs = family_samples*.identifier.collectEntries { [ it,  sample_gvcfs[it]] }
+    
+    def samples_missing_gvcfs = family_gvcfs.grep { it.value == null }*.key
+    if(samples_missing_gvcfs)
+        fail "Sample samples $samples_missing_gvcfs from family $family are missing gVCFs. Please check appropriate inputs have been provided"
+    
+    output.dir = "variants/${family}"
+    
+    println "Inputs are: " + family_gvcfs*.value.flatten()
+    
+    from(family_gvcfs*.value.flatten()) produce("${family}.gvcf.gz") {
+        exec """
+            cat $inputs.gvcf | bgzip -c > $output.gvcf.gz
+        """
+    }
+}
+
+
+genotype_gvcfs = {
+    
+    doc "Joint genotype the incoming gVCFs using GATK GenotypeGVCFs"
+    
+    transform("gvcf.gz") to("vcf.gz") {
+        exec """
+            cp -v $input.gvcf.gz $output.vcf.gz
         """
     }
 }
