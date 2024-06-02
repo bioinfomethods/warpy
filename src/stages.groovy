@@ -155,11 +155,8 @@ read_stats = {
 
 pileup_variants = {
     
-    output.dir="clair_output/pileup"
-
-    var GVCF : false
-    
-    
+    output.dir="clair3_output/pileup"
+   
     println("Clair chunk: " + clair_chunk)
     
     gngs.Region region = new gngs.Region(clair_chunk.toString())
@@ -189,7 +186,7 @@ pileup_variants = {
                     --minMQ $calling.min_mq
                     --minCoverage $calling.min_cov
                     --call_snp_only False
-                    --gvcf $GVCF
+                    --gvcf ${calling.enable_gvcf ? "True" : "False"}
                     --enable_long_indel False
                     --temp_file_dir gvcf_tmp_path
                     --pileup
@@ -217,6 +214,7 @@ aggregate_pileup_variants = {
                 --vcf_fn_prefix $sample
                 --output_fn $output.vcf.gz.prefix
                 --sampleName $sample
+                --print_ref_calls ${calling.enable_gvcf ? "True" : "False"}
                 --ref_fn $REF
                 --cmd_fn $output.dir/tmp/CMD
 
@@ -373,7 +371,7 @@ evaluate_candidates = {
                 --full_aln_regions $input.bed
                 --ctgName $chr
                 --add_indel_length
-                --gvcf false
+                --gvcf ${calling.enable_gvcf?"True":"False"}
                 --minMQ $calling.min_mq
                 --minCoverage $calling.min_cov
                 --snp_min_af $calling.snp_min_af
@@ -399,13 +397,13 @@ aggregate_full_align_variants = {
                 --sampleName $sample
                 --ref_fn $REF
                 --contigs_fn $input1
+                --print_ref_calls True
                 --cmd_fn $output.dir/tmp/CMD
 
             if [ "\$( bgzip -fdc $output.vcf.gz | grep -v '#' | wc -l )" -eq 0 ]; then
                 echo "[INFO] Exit in full-alignment variant calling";
                 exit 0;
             fi
-
         """
     }
 }
@@ -413,29 +411,33 @@ aggregate_full_align_variants = {
 merge_pileup_and_full_vars = {
     
     output.dir = "variants"
+    
+    List output_files = ["${sample}.merged_methods.${chr}.vcf"]
+    if(calling.enable_gvcf) {
+        output_files.add "$output.dir/gvcf/${sample}.merged_methods.${chr}.gvcf"
+    }
 
-    produce("${sample}.merged_methods.${chr}.vcf.gz") {
+    produce(output_files) {
+        
+        def gvcfFlags = calling.enable_gvcf ? 
+                "--print_ref_calls True --gvcf True --gvcf_fn $output.gvcf" : ""
+        
         exec """
-
             echo "[INFO] 7/7 Merge pileup VCF and full-alignment VCF"
+
+            mkdir -p $output.dir/gvcf
 
             $tools.PYPY $tools.CLAIR3/clair3.py MergeVcf
                 --pileup_vcf_fn $input.aggregate.pileup.vcf.gz
                 --bed_fn_prefix candidates/$chr
                 --full_alignment_vcf_fn $input.full_alignment.vcf.gz
-                --output_fn $output.vcf.gz.prefix
-                --platform ont
-                --print_ref_calls False
-                --gvcf false
+                --output_fn $output.vcf
+                --platform ont $gvcfFlags
                 --haploid_precise False
                 --haploid_sensitive False
                 --non_var_gvcf_fn non_var.gvcf
                 --ref_fn $REF
                 --ctgName $chr
-
-            bgzip -c $output.vcf.gz.prefix > $output.vcf.gz
-
-            tabix $output.vcf.gz
         """
     }
 }
@@ -459,6 +461,7 @@ aggregate_all_variants = {
                 --output_fn $output.vcf.gz.prefix
                 --sampleName $sample
                 --ref_fn $REF
+                --print_ref_calls True
                 --contigs_fn $input1
                 --cmd_fn $output.dir/tmp/CMD
 
