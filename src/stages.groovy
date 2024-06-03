@@ -275,10 +275,6 @@ phase_contig = {
                 bgzip $output.prefix
 
                 tabix -f -p vcf $output
-
-                conda deactivate
-
-                unset __conda_setup
          """
     }
 }
