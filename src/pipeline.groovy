@@ -107,7 +107,7 @@ init = {
     
     produce("CONTIGS") {
         groovy """
-            new File('CONTIGS').text = new gngs.BED("$opts.targets).load()*.chr.unique().join('\n') + '\n'
+            new File('CONTIGS').text = new gngs.BED('$opts.targets').load()*.chr.unique().join('\\n') + '\\n'
         """
     }
 }
