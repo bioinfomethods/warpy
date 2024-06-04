@@ -150,7 +150,7 @@ run(input_files*.value.flatten()) {
          ],
              
              
-         sv_calling: sample_channel* [  mosdepth + filterBam + sniffles2 + filter_sv_calls ],
+         sv_calling: sample_channel* [  mosdepth + filterBam + sniffles2 + filter_sv_calls + symbolic_alt + sv_annotate ],
 
          methylation: sample_channel * [ bam2bedmethyl ],
          

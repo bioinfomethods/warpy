@@ -240,3 +240,28 @@ post_to_cxp = {
     }
 }
 
+symbolic_alt = {
+    
+    var XIMMER_GNGS_JAR : "$XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
+    
+    output.dir = "sv"
+
+    exec """
+        cat  $input.vcf | 
+          $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
+        > $output.vcf
+    """
+}
+
+sv_annotate = {
+    output.dir = "sv"
+    exec """
+        gatk SVAnnotate 
+            -V $input.vcf
+            --protein-coding-gtf $GENCODE
+            --lenient
+            -O $output.vcf.gz
+    """
+}
+
+
