@@ -436,7 +436,7 @@ merge_pileup_and_full_vars = {
                 --ctgName $chr
         """
         
-        sample_gvcfs.get(sample, []).add(output.gvcf)
+        sample_gvcfs.get(sample, []).add(output.gvcf.toString())
     }
 }
 
