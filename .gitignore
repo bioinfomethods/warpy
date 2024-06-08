@@ -7,3 +7,5 @@ tools
 *.fai
 batches
 /eclipse_build/
+.bpipe
+batches
