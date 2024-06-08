@@ -265,3 +265,23 @@ sv_annotate = {
 }
 
 
+
+strvctvre_annotate = {
+
+    output.dir = "sv"
+
+    doc "Run StrVCTVRE"
+    
+    transform('vcf.gz') to('strvctvre.vcf.bgz') {
+        exec """
+            set -o pipefail
+
+            python $tools.STRVCTVRE_HOME/StrVCTVRE.py -p $calling.PHYLOP100WAY -i "$input.vcf.gz" -o $output.vcf.bgz.prefix
+
+            bgzip -c $output.vcf.bgz.prefix > $output.vcf.bgz
+
+            tabix -p vcf $output.vcf.bgz
+        """
+    }
+}
+
