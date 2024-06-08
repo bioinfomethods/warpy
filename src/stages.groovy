@@ -78,6 +78,26 @@ make_mmi = {
     }
 }
 
+rename_and_merge_demux_output = {
+
+    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
+
+    output.dir = "fastq"
+
+    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
+        succeed "Not merging fastq for NTC"
+    }
+
+    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
+        exec """
+            echo "Renaming data for $sample with barcode no. $barcode"
+
+            zcat $inputs.fastq.gz > $output.fastq.gz
+        """
+    }
+}
+
+
 minimap2_align = {
     
     def SAMTOOLS = tools.SAMTOOLS
@@ -95,6 +115,41 @@ minimap2_align = {
 
     """
 }
+
+minimap2_align_fastq = {
+    
+    def SAMTOOLS = tools.SAMTOOLS
+    
+    output.dir = 'align'
+
+    exec """
+            $tools.MINIMAP2 -y -t $threads -ax map-ont $REF_MMI $input.fastq.gz
+            | $SAMTOOLS sort -@ $threads > $output.bam
+
+        $SAMTOOLS index $output.bam
+
+    """
+}
+
+
+merge_bams = {
+
+    doc "Merge arbitrary BAMs"
+
+    output.dir = 'merged'
+
+    produce(opts.sample + '.merged.bam') {
+	    exec """
+		    $tools.SAMTOOLS merge $output.bam $inputs.bam 
+		    -f 
+		    --no-PG 
+		    --write-index 
+		    --reference $REF 
+		    --threads 4
+	    """
+    }
+}
+
 
 merge_pass_calls = {
 
@@ -511,6 +566,86 @@ genotype_gvcfs = {
     transform("gvcf.gz") to("vcf.gz") {
         exec """
             cp -v $input.gvcf.gz $output.vcf.gz
+        """
+    }
+}
+
+
+rename_and_merge_demux_output = {
+
+    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
+
+    output.dir = "fastq"
+
+    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
+        succeed "Not merging fastq for NTC"
+    }
+
+    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
+        exec """
+            echo "Renaming data for $sample with barcode no. $barcode"
+
+            zcat $inputs.fastq.gz > $output.fastq.gz
+        """
+    }
+}
+
+
+rename_and_merge_demux_output = {
+
+    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
+
+    output.dir = "fastq"
+
+    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
+        succeed "Not merging fastq for NTC"
+    }
+
+    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
+        exec """
+            echo "Renaming data for $sample with barcode no. $barcode"
+
+            zcat $inputs.fastq.gz > $output.fastq.gz
+        """
+    }
+}
+
+
+rename_and_merge_demux_output = {
+
+    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
+
+    output.dir = "fastq"
+
+    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
+        succeed "Not merging fastq for NTC"
+    }
+
+    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
+        exec """
+            echo "Renaming data for $sample with barcode no. $barcode"
+
+            zcat $inputs.fastq.gz > $output.fastq.gz
+        """
+    }
+}
+
+
+rename_and_merge_demux_output = {
+
+    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
+
+    output.dir = "fastq"
+
+    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
+        succeed "Not merging fastq for NTC"
+    }
+
+    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
+        exec """
+            echo "Renaming data for $sample with barcode no. $barcode"
+
+            zcat $inputs.fastq.gz > $output.fastq.gz
         """
     }
 }
