@@ -472,8 +472,10 @@ merge_pileup_and_full_vars = {
 
     produce(output_files) {
         
-        def gvcfFlags = calling.enable_gvcf ? 
-                "--print_ref_calls True --gvcf True --gvcf_fn $output.gvcf" : ""
+        def gvcfFlags = ""
+        if(calling.enable_gvcf) {
+            gvcfFlags = "--print_ref_calls True --gvcf True --gvcf_fn $output.gvcf" 
+        }
         
         exec """
             echo "[INFO] 7/7 Merge pileup VCF and full-alignment VCF"
