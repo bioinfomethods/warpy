@@ -6,7 +6,7 @@ filterBam = {
 
     filter('filtered') {
         exec """
-            $tools.SAMTOOLS view -@ $threads 
+            samtools view -@ $threads 
                 $input.bam
                 -F 2308 
                 -o $output.bam
