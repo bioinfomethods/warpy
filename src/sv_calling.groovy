@@ -305,7 +305,7 @@ symbolic_alt = {
 
     exec """
         cat  $input.vcf | 
-          $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
+          groovy -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
         > $output.vcf
     """
 }
@@ -315,7 +315,7 @@ sv_annotate = {
     exec """
         gatk SVAnnotate 
             -V $input.vcf
-            --protein-coding-gtf $GENCODE
+            --protein-coding-gtf $GENCODE_GTF
             --lenient
             -O $output.vcf.gz
     """
@@ -328,14 +328,12 @@ strvctvre_annotate = {
     output.dir = "sv"
 
     doc "Run StrVCTVRE"
-    
+
     transform('vcf.gz') to('strvctvre.vcf.bgz') {
         exec """
             set -o pipefail
 
-            python $tools.STRVCTVRE_HOME/StrVCTVRE.py -p $calling.PHYLOP100WAY -i "$input.vcf.gz" -o $output.vcf.bgz.prefix
-
-            bgzip -c $output.vcf.bgz.prefix > $output.vcf.bgz
+            zcat $input.vcf.gz | strvctvre -p /hpc/genomeref/hg38/annotation/StrVCTVRE/hg38.phyloP100way.bw | bgzip -c > $output.vcf.bgz
 
             tabix -p vcf $output.vcf.bgz
         """

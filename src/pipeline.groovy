@@ -56,7 +56,7 @@ input_data_type = (by_extension.bam ? 'bam' : 'x5')
 Map params = model.params
 
 DRD_MODELS_PATH="$BASE/models/dorado"
-CLAIR3_MODELS_PATH="$BASE/tools/Clair3/models"
+CLAIR3_MODELS_PATH="$BASE/models/Clair3"
 
 VERSION="1.0"
 
@@ -159,6 +159,10 @@ run(input_files*.value.flatten()) {
          methylation: sample_channel * [ bam2bedmethyl ],
          
          str_calling: sample_channel * [ chr(*str_chrs) *  [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+
         */
-    ] + family_channel * [ sniffles2_joint_call ] //+ family_channel * [ combine_family_gvcfs + genotype_gvcfs ] 
+    ] + family_channel * [ sniffles2_joint_call ] // + 
+
+    // Phase 3: family merging
+    family_channel * [ (combine_family_gvcfs + genotype_gvcfs).when { calling.enable_gvcf } ]
 }
