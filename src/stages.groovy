@@ -54,17 +54,17 @@ dorado = {
 
     output.dir='dorado/' + branch.name
 
-    transform('.x5') to ('.ubam') {
-        uses(dorados: 1) {
-            exec """
-                set -o pipefail
+    uses(dorados: 1) {
+        exec """
+            set -o pipefail
 
-                ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -sf $it $output.dir/$it.name;"}.join("\n") }
+            echo "Processing $inputs.x5 with dorado"
 
-                $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir/${file(input.x5).name} --modified-bases 5mCG_5hmCG | 
-                    $tools.SAMTOOLS view -b -o $output.ubam -
-            """
-        }
+            ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -sf $it $output.dir/$it.name;"}.join("\n") }
+
+            $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir --modified-bases 5mCG_5hmCG | 
+                $tools.SAMTOOLS view -b -o $output.ubam -
+        """
     }
 }
 
@@ -114,6 +114,8 @@ minimap2_align = {
         $SAMTOOLS index $output.pass.bam
 
     """
+
+    forward(output.pass.bam)
 }
 
 minimap2_align_fastq = {
