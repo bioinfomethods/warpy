@@ -137,7 +137,6 @@ run(input_files*.value.flatten()) {
     
     // Phase 2: single sample variant calling
     [
-        /*
          snp_calling : sample_channel * [ 
              target_channel  * [ pileup_variants ] + aggregate_pileup_variants +
              [ 
@@ -150,19 +149,20 @@ run(input_files*.value.flatten()) {
              ] +
                 contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants,
          ],
-        */   
-             
-         //sv_calling: sample_channel* [  mosdepth + filterBam + sniffles2 + filter_sv_calls + symbolic_alt + sv_annotate + strvctvre_annotate ],
-         sv_calling: sample_channel * [ mosdepth + filterBam + sniffles2_for_trios ]
 
-        /*
+         sv_calling: sample_channel * [ mosdepth + filterBam + [
+            sniffles2_for_trios,
+            sniffles2 + filter_sv_calls
+         ] ],
+
          methylation: sample_channel * [ bam2bedmethyl ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) *  [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
-
-        */
-    ] + family_channel * [ sniffles2_joint_call ] // + 
+         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+    ] +
 
     // Phase 3: family merging
-    family_channel * [ (combine_family_gvcfs + genotype_gvcfs).when { calling.enable_gvcf } ]
+    family_channel * [ sniffles2_joint_call, (combine_family_gvcfs + genotype_gvcfs).when { calling.enable_gvcf } ] +
+    
+    // annotate
+    symbolic_alt + sv_annotate + strvctvre_annotate
 }
