@@ -59,11 +59,6 @@ dorado = {
             set -o pipefail
 
             echo "Processing $inputs.x5 with dorado"
-    uses(dorados: 1) {
-        exec """
-            set -o pipefail
-
-            echo "Processing $inputs.x5 with dorado"
 
             ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -sf $it $output.dir/$it.name;"}.join("\n") }
 
@@ -477,10 +472,6 @@ merge_pileup_and_full_vars = {
 
     produce(output_files) {
         
-        def gvcfFlags = ""
-        if(calling.enable_gvcf) {
-            gvcfFlags = "--print_ref_calls True --gvcf True --gvcf_fn $output.gvcf" 
-        }
         def gvcfFlags = ""
         if(calling.enable_gvcf) {
             gvcfFlags = "--print_ref_calls True --gvcf True --gvcf_fn $output.gvcf" 
