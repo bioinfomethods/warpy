@@ -43,6 +43,63 @@ sniffles2 = {
     }
 }
 
+sniffles2_for_trios = {
+    var sniffles_args : ''
+    
+    branch.dir = "sv/$sample"
+
+    produce("${sample}.sniffles.snf") {
+        exec """
+            export REF_PATH=$REF
+
+            sniffles
+                --threads $threads
+                --sample-id ${sample}
+                --reference $REF
+                --output-rnames
+                --cluster-merge-pos $calling.cluster_merge_pos
+                --input $input.bam
+                --tandem-repeats ${calling.tr_bed} $sniffles_args
+                --snf $output.snf
+        """
+
+        sample_snfs.get(sample, []).add(output.snf.toString())
+    }
+}
+
+sniffles2_joint_call = {
+    requires family : 'family to process'
+
+    var sniffles_args : ''
+
+    def family_samples = meta*.value.grep { println(it);  it.family_id == family }
+
+    println "Samples to process for $family are ${family_samples*.identifier}"
+
+    def family_snfs = family_samples*.identifier.collectEntries { [ it,  sample_snfs[it]] }
+    
+    def samples_missing_snfs = family_snfs.grep { it.value == null }*.key
+    if(samples_missing_snfs)
+        fail "Sample samples $samples_missing_snfs from family $family are missing SNFs (sample SV output file). Please check appropriate inputs have been provided"
+
+    output.dir = "sv/$family"
+
+    println "Inputs are: " + family_snfs*.value.flatten()
+    
+    from(family_snfs*.value.flatten()) produce("${family}.sv.vcf.gz") {
+        exec """
+            sniffles
+                --threads $threads
+                --input $inputs
+                --vcf $output.prefix
+
+            bgzip -c $output.prefix > $output.vcf.gz
+
+            bcftools index -t $output.vcf.gz
+        """
+    }
+}
+
 filter_sv_calls = {
 //    input:
 //        file vcf
