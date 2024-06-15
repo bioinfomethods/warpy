@@ -79,13 +79,20 @@ dorado_group_size = 10
 
 input_groups = input_files.collectEntries { [ it.key, it.value.collate(dorado_group_size).indexed().collectEntries { [ "dorado_group_" + it.key, it.value] } ] }
 
+println "The input groups are: \n\n"  + input_groups
+
+calling_chunk_size = 10000000
+
 targets_by_chr = new gngs.BED(opts.targets).load().groupBy { it.chr }.collect { chr, List<Region> regions ->
-    new gngs.Region(chr, regions*.from.min(), regions*.to.max() )
+   new gngs.Region(chr, regions*.from.min(), regions*.to.max() )
 }
+
+genome 'hg38'
+
 
 contigs = channel(targets_by_chr*.chr.unique()).named('chr')
 
-target_channel = channel(targets_by_chr).named('clair_chunk')
+// target_channel = channel(targets_by_chr).named('clair_chunk')
 
 sample_channel = channel(input_files).named('sample')
 
@@ -138,7 +145,7 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
-             target_channel  * [ pileup_variants ] + aggregate_pileup_variants +
+             hg38.partition(10000000)  * [ pileup_variants ] + aggregate_pileup_variants +
              [ 
                     get_qual_filter,
                     contigs * [

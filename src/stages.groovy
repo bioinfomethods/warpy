@@ -214,11 +214,13 @@ pileup_variants = {
     
     output.dir="clair3_output/pileup"
    
-    println("Clair chunk: " + clair_chunk)
+    println("Clair chunk: " + region)
+
+    def chunk = new gngs.Region(region.toString())
     
-    gngs.Region region = new gngs.Region(clair_chunk.toString())
+    // gngs.Region region = new gngs.Region(clair_chunk.toString())
     
-    produce("${sample}_${region.chr}_${region.from}.vcf", "${sample}_${region.chr}_${region.from}.txt") {
+    produce("${sample}_${chunk.chr}_${chunk.from}.vcf", "${sample}_${chunk.chr}_${chunk.from}.txt") {
 
 
         uses(clair3: 1) {
@@ -228,14 +230,14 @@ pileup_variants = {
                 export REF_PATH=cram_cache/%2s/%2s/%s
 
                 python $tools.CLAIR3/clair3.py CallVariantsFromCffi
-                    --chkpnt_fn $CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/pileup
+                    --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/pileup
                     --bam_fn $input.bam
                     --bed_fn $opts.targets
                     --call_fn $output.vcf.optional
                     --ref_fn $REF
-                    --ctgName $region.chr
-                    --ctgStart $region.from
-                    --ctgEnd $region.to
+                    --ctgName $chunk.chr
+                    --ctgStart $chunk.from
+                    --ctgEnd $chunk.to
                     --platform ont 
                     --fast_mode False
                     --snp_min_af $calling.snp_min_af
