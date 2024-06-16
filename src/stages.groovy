@@ -418,7 +418,7 @@ evaluate_candidates = {
             echo "[INFO] 6/7 Call low-quality variants using full-alignment model"
 
             python $tools.CLAIR3/clair3.py CallVariantsFromCffi
-                --chkpnt_fn $CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/full_alignment
+                --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/full_alignment
                 --bam_fn $input.bam 
                 --call_fn $output.vcf
                 --sampleName ${sample}

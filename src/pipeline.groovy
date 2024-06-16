@@ -56,7 +56,6 @@ input_data_type = (by_extension.bam ? 'bam' : 'x5')
 Map params = model.params
 
 DRD_MODELS_PATH="$BASE/models/dorado"
-CLAIR3_MODELS_PATH="$BASE/models/Clair3"
 
 VERSION="1.0"
 
