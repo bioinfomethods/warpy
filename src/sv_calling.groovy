@@ -327,15 +327,17 @@ sv_annotate = {
 
 strvctvre_annotate = {
 
-    output.dir = "sv"
-
     doc "Run StrVCTVRE"
+    
+    requires PHYLOP100WAY : "Please set the location of PHYLOP100WAY"
+
+    output.dir = "sv"
 
     transform('vcf.gz') to('strvctvre.vcf.bgz') {
         exec """
-            set -o pipefail
+            python $tools.STRVCTVRE_HOME/StrVCTVRE.py -p $PHYLOP100WAY -i "$input.vcf.gz" -o $output.vcf.bgz.prefix
 
-            zcat $input.vcf.gz | strvctvre -p /hpc/genomeref/hg38/annotation/StrVCTVRE/hg38.phyloP100way.bw | bgzip -c > $output.vcf.bgz
+            bgzip -c $output.vcf.bgz.prefix > $output.vcf.bgz
 
             tabix -p vcf $output.vcf.bgz
         """
