@@ -135,6 +135,10 @@ sample_gvcfs = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 
 run(input_files*.value.flatten()) {
+    
+    // paritition genome into 10Mbp chunks, but only take those that overlap our target regions
+    Set<bpipe.RegionSet> partitions = hg38.partition(10000000).findAll { rs -> contigs.source.any { chr -> rs.overlaps(chr) } }
+    
     init + check_tools + 
     
     // Phase 1: resolve or create BAM files
@@ -145,7 +149,7 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
-             hg38.partition(10000000)  * [ pileup_variants ] + aggregate_pileup_variants +
+             partitions   * [ pileup_variants ] + aggregate_pileup_variants +
              [ 
                     get_qual_filter,
                     contigs * [
