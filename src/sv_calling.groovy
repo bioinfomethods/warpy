@@ -306,7 +306,7 @@ symbolic_alt = {
     output.dir = "sv"
 
     exec """
-        zcat $input.vcf.gz | 
+        gunzip -c $input.vcf.gz | 
           groovy -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
         > $output.vcf
     """
