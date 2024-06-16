@@ -301,7 +301,7 @@ post_to_cxp = {
 
 symbolic_alt = {
     
-    var XIMMER_GNGS_JAR : "$XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
+    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
     
     output.dir = "sv"
 
