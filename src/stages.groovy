@@ -449,6 +449,7 @@ aggregate_full_align_variants = {
             $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
                 --input_dir ${file(input1.vcf).parentFile.path}
                 --output_fn $output.vcf.gz.prefix
+                --vcf_fn_prefix $sample
                 --sampleName $sample
                 --ref_fn $REF
                 --contigs_fn $input1
@@ -492,7 +493,7 @@ merge_pileup_and_full_vars = {
                 --platform ont $gvcfFlags
                 --haploid_precise False
                 --haploid_sensitive False
-                --non_var_gvcf_fn non_var.gvcf
+                --non_var_gvcf_fn ${sample}-non_var.gvcf
                 --ref_fn $REF
                 --ctgName $chr
         """
