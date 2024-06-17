@@ -50,7 +50,7 @@ set_group_info = {
 }
 
 
-merge_pod5 = {
+merge_pod5s = {
     output.dir = "merged"
 
     produce("${sample}.${flowcell}.${groupNum}.pod5") {
@@ -64,5 +64,5 @@ merge_pod5 = {
 
 
 run {
-    groups * [ set_group_info + merge_pod5 ]
+    groups * [ set_group_info + merge_pod5s ]
 }
