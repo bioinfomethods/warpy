@@ -276,6 +276,8 @@ post_to_cxp = {
                     IMPORT_ANALYSIS_ZIP=STAGE_CNV_RESULTS_TARGET.replaceAll('^.*:','') + "/" + file(input1.zip).name
                     IMPORT_QC_ZIP=STAGE_CNV_RESULTS_TARGET.replaceAll('^.*:','') + "/" + file(input.qc.zip).name
                 }
+
+                sampleSex = meta.get(sample).sex
                  
                 exec """
                     $stageCommand
@@ -285,9 +287,9 @@ post_to_cxp = {
                     $tools.GROOVY -cp $XIMMER_GNGS_JAR:$XIMMER/src/main/groovy:$XIMMER/src/main/resources:$XIMMER/src/main/js $XIMMER/src/main/groovy/PostToCXPWGS.groovy
                         -project $CXP_PROJECT
                         -analysis $IMPORT_ANALYSIS_ZIP
-                        -sex $sample:$opts.sex 
+                        -sex $sample:$sampleSex
                         -cxp $CXP_URL 
-                        -target $target_bed  
+                        -target $target_bed
                         -batch $cnv_batch
                         -bam $sample:$input.bam
                         -qc $IMPORT_QC_ZIP 

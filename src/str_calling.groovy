@@ -5,6 +5,8 @@ call_str = {
     branch.dir = "str/$sample/${chr}"
 
     produce("${sample}.${chr}.straglr.tsv", "${sample}.${chr}.straglr.vcf.gz") {
+        sampleSex = meta.get(sample).sex
+
         exec """
 
             { grep $chr -Fw $calling.repeats_bed || true; } > $output.dir/repeats_subset.bed
@@ -14,7 +16,7 @@ call_str = {
                     --sample ${sample}
                     --tsv $output.tsv
                     -v $output.vcf.gz.prefix
-                    --sex ${opts.sex} $input.bam $REF
+                    --sex ${sampleSex} $input.bam $REF
                     --min_support 1
                     --min_cluster_size 1
 
