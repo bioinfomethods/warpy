@@ -538,6 +538,21 @@ aggregate_all_variants = {
 }
 
 
+normalize_vcf = {
+
+    doc "split VCF lines so that each line contains one and only one variant, and left-normalize all VCF lines"
+
+    output.dir="variants"
+    transform('vcf.gz') to ("norm.vcf.gz") {
+        exec """
+            gunzip -c $input.gz | bcftools norm -m -both - | bcftools norm -f $REF - | bgzip -c > $output
+
+            tabix -p vcf $output
+        """
+    }
+}
+
+
 combine_family_gvcfs = {
     
     requires family : 'family to process'
