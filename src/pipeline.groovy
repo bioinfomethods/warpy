@@ -15,11 +15,9 @@ load 'sv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
 
-meta =
-  file(opts.samples)
-    .withReader { r -> Collections.synchronizedMap(new Yaml().load(r)) }
-        .samples
-        .collectEntries { [ it.identifier,  it ] } as Map
+requires samples_parser : "Please ensure a samples_parser is defined in bpipe.config as a parameter"
+
+meta = samples_parser(opts.samples)
 
 println "Analysis samples are: " + meta*.key
     
