@@ -205,6 +205,9 @@ read_stats = {
 
     produce("${sample}.readstats.tsv.gz") {
         exec """
+
+            set -o pipefail
+
             $tools.BAMSTATS --threads $threads $input.bam | gzip > $output.gz
         """
     }
