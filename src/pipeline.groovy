@@ -95,7 +95,7 @@ sample_channel = channel(input_files).named('sample')
 // Set the family ids equal to sample id if no family id is provided
 meta.each { if(!it.value.family_id) it.value.family_id = it.value.identifier }
 
-family_channel = channel(meta*.value*.family_id).named('family')
+family_channel = channel(meta*.value.grep {it.parents}*.family_id).named('family')
    
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
@@ -127,7 +127,7 @@ forward_sample_bam = {
     forward input.bam
 }
 
-sample_gvcfs = Collections.synchronizedMap([:])
+sample_vcfs = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 
 run(input_files*.value.flatten()) {
@@ -168,7 +168,7 @@ run(input_files*.value.flatten()) {
     ] +
 
     // Phase 3: family merging
-    family_channel * [ sniffles2_joint_call, (combine_family_gvcfs).when { calling.enable_gvcf } ] +
+    family_channel * [ sniffles2_joint_call, combine_family_vcfs ] +
     
     // annotate
     symbolic_alt + sv_annotate + strvctvre_annotate
