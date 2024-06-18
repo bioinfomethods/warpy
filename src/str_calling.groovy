@@ -5,7 +5,7 @@ call_str = {
     branch.dir = "str/$sample/${chr}"
 
     produce("${sample}.${chr}.straglr.tsv", "${sample}.${chr}.straglr.vcf.gz") {
-        sampleSex = meta.get(sample).sex
+        def sampleSex = meta.get(sample).sex
 
         exec """
 
