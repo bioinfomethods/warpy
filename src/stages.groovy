@@ -71,6 +71,8 @@ dorado = {
 make_mmi = {
     output.dir = BASE + "/data/hg38"
 
+    // nb: this could write into the reference directory
+    // which is a little naughty
     produce(REF_MMI) {
         exec """
             $tools.MINIMAP2 -t ${threads} -x map-ont -d $output ${REF}
@@ -500,10 +502,6 @@ merge_pileup_and_full_vars = {
                 --ref_fn $REF
                 --ctgName $chr
         """
-        
-        if (calling.enable_gvcf) {
-            sample_gvcfs.get(sample, []).add(output.gvcf.toString())
-        }
     }
 }
 
@@ -554,50 +552,38 @@ normalize_vcf = {
 
             tabix -p vcf $output
         """
+        
+        sample_vcfs.get(sample, []).add(output.toString())
     }
 }
 
 
-combine_family_gvcfs = {
+combine_family_vcfs = {
     
     requires family : 'family to process'
+
+    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
 
     def family_samples = meta*.value.grep { println(it);  it.family_id == family }
     
     println "Samples to process for $family are ${family_samples*.identifier}"
     
-    def family_gvcfs = family_samples*.identifier.collectEntries { [ it,  sample_gvcfs[it]] }
+    def family_vcfs = family_samples*.identifier.collectEntries { [ it,  sample_vcfs[it]] }
     
-    def samples_missing_gvcfs = family_gvcfs.grep { it.value == null }*.key
-    if(samples_missing_gvcfs)
-        fail "Sample samples $samples_missing_gvcfs from family $family are missing gVCFs. Please check appropriate inputs have been provided"
+    def samples_missing_vcfs = family_vcfs.grep { it.value == null }*.key
+    if(samples_missing_vcfs)
+        fail "Sample samples $samples_missing_vcfs from family $family are missing gVCFs. Please check appropriate inputs have been provided"
     
     output.dir = "variants/${family}"
     
-    println "Inputs are: " + family_gvcfs*.value.flatten()
+    println "Inputs are: " + family_vcfs*.value.flatten()
     
-    from(family_gvcfs*.value.flatten()) produce("${family}.gvcf.gz") {
+    from(family_vcfs*.value.flatten()) produce("${family}.vcf.gz") {
         exec """
-            cat $inputs.gvcf | bgzip -c > $output.gvcf.gz
+          $tools.GROOVY -cp $XIMMER_GNGS_JAR $BASE/src/MergeFamilyVCF.groovy $inputs.vcf.gz > $output.vcf.gz
         """
     }
 }
-
-
-genotype_gvcfs = {
-
-    
-    output.dir = "variants"
-
-    doc "Joint genotype the incoming gVCFs using GATK GenotypeGVCFs"
-    
-    transform("gvcf.gz") to("vcf.gz") {
-        exec """
-            cp -v $input.gvcf.gz $output.vcf.gz
-        """
-    }
-}
-
 
 rename_and_merge_demux_output = {
 
