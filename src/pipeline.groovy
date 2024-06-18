@@ -101,7 +101,11 @@ init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
     println "\nUsing base calling model: $params.drd_model"
     println "\nUsing clair3 model: $clair3_model"
+    // println "\nUsing REF_MMI: $REF_MMI"
     
+    // Define mmi path based on reference file name
+    branch.REF_MMI=REF.replaceAll('\\.[^.]*$','.mmi')
+
     produce('versions.txt') {
         exec """
             echo $VERSION > versions.txt
