@@ -545,6 +545,8 @@ normalize_vcf = {
     output.dir="variants"
     transform('vcf.gz') to ("norm.vcf.gz") {
         exec """
+            set -o pipefail
+
             gunzip -c $input.gz | bcftools norm -m -both - | bcftools norm -f $REF - | bgzip -c > $output
 
             tabix -p vcf $output
@@ -556,9 +558,7 @@ normalize_vcf = {
 combine_family_gvcfs = {
     
     requires family : 'family to process'
-    
-    println(meta)
-    
+
     def family_samples = meta*.value.grep { println(it);  it.family_id == family }
     
     println "Samples to process for $family are ${family_samples*.identifier}"
@@ -582,7 +582,10 @@ combine_family_gvcfs = {
 
 
 genotype_gvcfs = {
+
     
+    output.dir = "variants"
+
     doc "Joint genotype the incoming gVCFs using GATK GenotypeGVCFs"
     
     transform("gvcf.gz") to("vcf.gz") {
