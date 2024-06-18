@@ -1,19 +1,19 @@
 
 samples:
   - identifier: HG002
-    familyId: GIAB
+    family_id: GIAB
     sex: female
     inputs:
       - bams/hg002.haplotagged.chr21_subset.clean.bam 
     parents: [HG003,HG004]
   - identifier: HG003
-    familyId: GIAB
+    family_id: GIAB
     sex: male
     inputs:
       - bams/hg003.haplotagged.chr21.subset.clean.bam
     parents: null
   - identifier: HG004
-    familyId: GIAB
+    family_id: GIAB
     sex: female
     inputs:
       - bams/hg004.haplotagged.chr21.subset.clean.bam
