@@ -7,7 +7,6 @@ title 'Warpy - Oxford Nanopore Super High Accuracy Pipeline'
 options {
     samples 'Sample metadata file', args:1, type: File, required: true
     targets 'Target regions to call variants in', args:1, type: File, required: true
-    sex 'Sample sex (required for STR analysis)', args:1, type: String, required: true
 }
 
 load 'stages.groovy'
@@ -163,13 +162,13 @@ run(input_files*.value.flatten()) {
             sniffles2 + filter_sv_calls
          ] ],
 
-         methylation: sample_channel * [ bam2bedmethyl ],
+         // methylation: sample_channel * [ bam2bedmethyl ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+         // str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
     ] +
 
     // Phase 3: family merging
-    family_channel * [ sniffles2_joint_call, (combine_family_gvcfs + genotype_gvcfs).when { calling.enable_gvcf } ] +
+    family_channel * [ sniffles2_joint_call, (combine_family_gvcfs).when { calling.enable_gvcf } ] +
     
     // annotate
     symbolic_alt + sv_annotate + strvctvre_annotate
