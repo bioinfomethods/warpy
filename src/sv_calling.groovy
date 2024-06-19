@@ -277,7 +277,7 @@ post_to_cxp = {
                     IMPORT_QC_ZIP=STAGE_CNV_RESULTS_TARGET.replaceAll('^.*:','') + "/" + file(input.qc.zip).name
                 }
 
-                sampleSex = meta.get(sample).sex
+                var sampleSex = meta.get(sample).sex
                  
                 exec """
                     $stageCommand
