@@ -1,27 +1,31 @@
 package archie
 
-import java.time.format.DateTimeFormatter
-import java.time.OffsetDateTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.util.regex.Pattern
-import java.nio.file.Paths
-import java.nio.file.Path
+import archie.ArchieEventHandlers
+import archie.domain.pipelines.*
+import archie.domain.pipelines.PipelineAssetsCollector
+import archie.domain.pipelines.PipelineNamespace
+
+import bpipe.Dependencies
+import bpipe.Pipeline
+import bpipe.PipelineEvent
+import bpipe.PipelineFile
 
 import groovy.json.*
 
-import bpipe.PipelineEvent
-import bpipe.PipelineFile
-import bpipe.Dependencies
-import bpipe.Pipeline
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.time.format.DateTimeFormatter
+import java.time.OffsetDateTime
+import java.time.ZonedDateTime
+import java.time.ZoneId
+import java.util.regex.Pattern
 
-import archie.domain.pipelines.*
-
-import static archie.Utils.sendMessage
-import static archie.utils.AnalysisUtils.createAnalysisUpdateMsgData
+import static archie.apiclient.dto.AnalysisStatus.FAILED
 import static archie.apiclient.dto.AnalysisStatus.IN_PROGRESS
 import static archie.apiclient.dto.AnalysisStatus.SUCCESS
-import static archie.apiclient.dto.AnalysisStatus.FAILED
+import static archie.domain.pipelines.PipelineStageName.PIPELINE_FINISHED
+import static archie.utils.AnalysisUtils.createAnalysisUpdateMsgData
+import static archie.Utils.sendMessage
 
 
 class ArchieEventHandlers {
@@ -35,43 +39,56 @@ class ArchieEventHandlers {
         sendMessage(msgContentData)
     }
 
-    static def onPipelineFinished = { String analysis_id, String project, PipelineEvent type, String desc, Map<String, Object> details ->
+    static def onPipelineFinished = { String analysis_id, String project, List<String> sampleIdentifiers, PipelineAssetsCollector assetsCollector, PipelineEvent type, String desc, Map<String, Object> details ->
         def pipeline_id = bpipe.Config.config.pid
         println "Pipeline $type event triggered, pipeline_id=$pipeline_id, desc=$desc"
 
-        def msgContentData = createAnalysisUpdateMsgData(analysis_id, project, pipeline_id, SUCCESS.name())
-        if(!details.result) {
+        if(details.result) {
+            Closure<PipelineStageAssets> stageAssetCollector = assetsCollector?.findStageAssetCollector(PIPELINE_FINISHED.id)
+            if (stageAssetCollector) {
+                Path analysisDir = Paths.get(new File('.').canonicalPath)
+                PipelineStageAssets stageAssets = stageAssetCollector(sampleIdentifiers, analysisDir)
+                def msgContentData = createAnalysisUpdateMsgData(
+                    analysis_id,
+                    project,
+                    pipeline_id,
+                    SUCCESS.name(),
+                    stageAssets.getAssets(),
+                    PIPELINE_FINISHED.id,
+                    desc,
+                    stageAssets.getMetadata()
+                )
+                sendMessage(msgContentData)
+            }
+            else {
+                def msgContentData = createAnalysisUpdateMsgData(analysis_id, project, pipeline_id, SUCCESS.name())
+                sendMessage(msgContentData)
+            }
+        }
+        else {
             println "Pipeline failed"
             def metadata = ['error': desc]
-            msgContentData.status = FAILED.name()
+            def msgContentData = createAnalysisUpdateMsgData(analysis_id, project, pipeline_id, FAILED.name())
             msgContentData.pipeline_status = FAILED.name()
             msgContentData.metadata = metadata
-        }
-
-        sendMessage(msgContentData)
-    }
-
-    static def onPipelineStageStarted = { String analysis_id, String project, List<String> batchSamples, PipelineEvent type, String desc, Map<String, Object> details ->
-        def pipeline_id = bpipe.Config.config.pid
-        def stageName = details.stage?.stageName
-        println "Pipeline $type event triggered, pipeline_id=$pipeline_id, stageName=$stageName, desc=$desc"
-    }
-
-    static def onPipelineStageCompleted = { String analysis_id, String project, List<String> batchSamples, PipelineAssetsCollector assetsCollector, 
-        PipelineEvent type, String desc, Map<String, Object> details ->
-
-        def pipeline_id = bpipe.Config.config.pid
-        def stageName = details.stage?.stageName
-        println "Pipeline $type event triggered, pipeline_id=$pipeline_id, stageName=$stageName, desc=$desc"
-
-        Closure<PipelineStageAssets> stageAssetCollector = assetsCollector.findStageAssetCollector(stageName)
-
-        if (stageAssetCollector) {
-            Path analysisDir = Paths.get(new File('.').canonicalPath)
-            PipelineStageAssets stageAssets = stageAssetCollector(batchSamples, analysisDir)
-            def msgContentData = createAnalysisUpdateMsgData(analysis_id, project, pipeline_id, IN_PROGRESS.name(), stageAssets.getAssets(), stageName, desc, stageAssets.getMetadata())
-
             sendMessage(msgContentData)
         }
+    }
+
+    static def init_hook = { def meta, def analysis_id, def project, def pipeline_script ->
+        println "init_hook: Samples are $meta"
+        assert "$analysis_id", "analysis_id parameter must be defined"
+        assert "$project", "project parameter must be defined"
+        assert "$pipeline_script", "pipeline_script parameter must be defined"
+
+        def sampleIdentifiers = meta*.key
+        assert sampleIdentifiers && !sampleIdentifiers.empty, "sampleIdentifiers is invalid, make sure samples_parser is correctly defined and returns a map keyed by sample identifiers."
+
+        String scriptName = Paths.get("$pipeline_script").fileName
+        def assetsCollector = PipelineAssetsCollector.find(scriptName, PipelineNamespace.WARPY)
+
+        println "init_hook: Adding Archie pipeline handlers for analysis_id=$analysis_id, project=$project, pipeline_script=$pipeline_script"
+        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.STARTED, ArchieEventHandlers.onPipelineStarted.curry("$analysis_id", "$project"))
+        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.FINISHED, ArchieEventHandlers.onPipelineFinished.curry("$analysis_id", "$project", sampleIdentifiers, assetsCollector))
     }
 }
