@@ -19,7 +19,11 @@ requires samples_parser : "Please ensure a samples_parser is defined in bpipe.co
 meta = samples_parser(opts.samples)
 
 println "Analysis samples are: " + meta*.key
-    
+
+requires init_hook : 'Please ensure an init_hook is defined in bpipe.config as a parameter'
+
+init_hook(meta)
+
 // input_files = scanInputDirectories(args)
 input_files = meta.collectEntries { sample, sampleMeta ->
 
