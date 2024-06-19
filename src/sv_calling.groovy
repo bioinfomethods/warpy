@@ -127,7 +127,7 @@ filter_sv_calls = {
 
             bash $output.sh > $output.vcf.gz.prefix
 
-            $BASE/scripts/vcfsort -T $HPC_TMP -N $threads $output.vcf.gz.prefix | bgziptabix $output.vcf.gz
+            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.vcf.gz.prefix | bgziptabix $output.vcf.gz
         """
     }
 }
