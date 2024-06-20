@@ -39,7 +39,7 @@ class ArchieEventHandlers {
         sendMessage(msgContentData)
     }
 
-    static def onPipelineFinished = { String analysis_id, String project, List<String> sampleIdentifiers, PipelineAssetsCollector assetsCollector, PipelineEvent type, String desc, Map<String, Object> details ->
+    static def onPipelineFinished = { String analysis_id, String project, def meta, PipelineAssetsCollector assetsCollector, PipelineEvent type, String desc, Map<String, Object> details ->
         def pipeline_id = bpipe.Config.config.pid
         println "Pipeline $type event triggered, pipeline_id=$pipeline_id, desc=$desc"
 
@@ -47,7 +47,7 @@ class ArchieEventHandlers {
             Closure<PipelineStageAssets> stageAssetCollector = assetsCollector?.findStageAssetCollector(PIPELINE_FINISHED.id)
             if (stageAssetCollector) {
                 Path analysisDir = Paths.get(new File('.').canonicalPath)
-                PipelineStageAssets stageAssets = stageAssetCollector(sampleIdentifiers, analysisDir)
+                PipelineStageAssets stageAssets = stageAssetCollector(meta, analysisDir)
                 def msgContentData = createAnalysisUpdateMsgData(
                     analysis_id,
                     project,
@@ -89,6 +89,6 @@ class ArchieEventHandlers {
 
         println "init_hook: Adding Archie pipeline handlers for analysis_id=$analysis_id, project=$project, pipeline_script=$pipeline_script"
         bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.STARTED, ArchieEventHandlers.onPipelineStarted.curry("$analysis_id", "$project"))
-        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.FINISHED, ArchieEventHandlers.onPipelineFinished.curry("$analysis_id", "$project", sampleIdentifiers, assetsCollector))
+        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.FINISHED, ArchieEventHandlers.onPipelineFinished.curry("$analysis_id", "$project", meta, assetsCollector))
     }
 }
