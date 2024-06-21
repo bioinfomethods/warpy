@@ -138,6 +138,10 @@ forward_sample_bam = {
 sample_vcfs = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 
+annotate_sv = segment {
+  symbolic_alt + sv_annotate + strvctvre_annotate
+}
+
 run(input_files*.value.flatten()) {
     
     // paritition genome into 10Mbp chunks, but only take those that overlap our target regions
@@ -167,7 +171,7 @@ run(input_files*.value.flatten()) {
 
          sv_calling: sample_channel * [ mosdepth + filterBam + [
             sniffles2_for_trios,
-            sniffles2 + filter_sv_calls
+            sniffles2 + filter_sv_calls + annotate_sv
          ] ],
 
          // methylation: sample_channel * [ bam2bedmethyl ],
@@ -176,8 +180,5 @@ run(input_files*.value.flatten()) {
     ] +
 
     // Phase 3: family merging
-    family_channel * [ sniffles2_joint_call, combine_family_vcfs ] +
-    
-    // annotate
-    symbolic_alt + sv_annotate + strvctvre_annotate
+    family_channel * [ sniffles2_joint_call + annotate_sv, combine_family_vcfs ]
 }
