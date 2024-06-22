@@ -42,17 +42,19 @@ println(new groovy.json.JsonBuilder(input_files).toPrettyString())
 
 println("Flattened: " + input_files*.value.flatten())
 
-by_extension = input_files*.value.flatten().groupBy { ext(new File(it)) }
-if(by_extension.size() > 1) 
-    throw new bpipe.PipelineError("Warpy can only accept a single file type for analysis in one execution")
-    
-input_pattern = '%' + by_extension*.key[0]
+// input data type keyed by sample
+input_data_type = input_files.collectEntries { sam, files ->
+    def by_ext = files.groupBy { ext(new File(it)) }
+    if(by_ext.size() > 1)
+        throw new bpipe.PipelineError("Warpy can only accept a single file type per sample for analysis but $sam has extensions $ext as inputs")
+
+    [(sam):by_ext.bam ? 'bam' : 'x5']
+}
+println("input_data_type: " + input_data_type)
 
 // to make pipeline generic to work for either fast5 or blow5,
 // define virtual file extentions 'x5' that can map to either
-filetype x5 : ['pod5', 'blow5','fast5']
-
-input_data_type = (by_extension.bam ? 'bam' : 'x5')
+filetype x5 : ['pod5', 'blow5', 'fast5']
 
 Map params = model.params
 
@@ -77,9 +79,11 @@ println "The chromosomes for STR calling are: $str_chrs"
 
 dorado_group_size = 10
 
-input_groups = input_files.collectEntries { [ it.key, it.value.collate(dorado_group_size).indexed().collectEntries { [ "dorado_group_" + it.key, it.value] } ] }
+// dorado_input_groups = input_files
+//   .findAll { k, v -> !v.any { it.endsWith('.bam') } }
+//   .collectEntries { [ it.key, it.value.collate(dorado_group_size).indexed().collectEntries { [ "dorado_group_" + it.key, it.value] } ] }
 
-println "The input groups are: \n\n"  + input_groups
+// println "The dorado input groups are: \n\n" + dorado_input_groups
 
 calling_chunk_size = 10000000
 
@@ -123,9 +127,13 @@ init = {
     }
 }
 
+// basecall_align_reads = segment {
+//     make_mmi.when { ! new File(REF_MMI).exists() } + input_groups * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
+//         dorado + minimap2_align ] + merge_pass_calls
+// }
 basecall_align_reads = segment {
-    make_mmi.when { ! new File(REF_MMI).exists() } + input_groups * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
-        dorado + minimap2_align ] + merge_pass_calls
+    convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
+        dorado + minimap2_align + merge_pass_calls
 }
 
 forward_sample_bam = {
@@ -150,10 +158,14 @@ run(input_files*.value.flatten()) {
     init + check_tools + 
     
     // Phase 1: resolve or create BAM files
-    sample_channel * [
-        basecall_align_reads.when { input_data_type == 'x5' } + forward_sample_bam.when { input_data_type == 'bam' } + read_stats 
-    ] + 
-    
+    // sample_channel * [
+    //     basecall_align_reads.when { input_data_type == 'x5' } + forward_sample_bam.when { input_data_type == 'bam' } + read_stats 
+    // ] + 
+    make_mmi.when { ! new File(REF_MMI).exists() } +
+        sample_channel * [
+            basecall_align_reads.when { input_data_type[sample] == 'x5' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats 
+        ] +
+
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
