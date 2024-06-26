@@ -24,7 +24,6 @@ requires init_hook : 'Please ensure an init_hook is defined in bpipe.config as a
 
 init_hook(meta)
 
-// input_files = scanInputDirectories(args)
 input_files = meta.collectEntries { sample, sampleMeta ->
 
    def sampleInputs = sampleMeta.inputs.collect { i ->
@@ -96,8 +95,6 @@ genome 'hg38'
 
 contigs = channel(targets_by_chr*.chr.unique()).named('chr')
 
-// target_channel = channel(targets_by_chr).named('clair_chunk')
-
 sample_channel = channel(input_files).named('sample')
 
 // Set the family ids equal to sample id if no family id is provided
@@ -131,10 +128,6 @@ init_family = {
     branch.family_branch = true
 }
 
-// basecall_align_reads = segment {
-//     make_mmi.when { ! new File(REF_MMI).exists() } + input_groups * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
-//         dorado + minimap2_align ] + merge_pass_calls
-// }
 basecall_align_reads = segment {
     convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
         dorado + minimap2_align + merge_pass_calls
@@ -143,7 +136,6 @@ basecall_align_reads = segment {
 forward_sample_bam = {
     
     // println "Forwarding bam file $input.bam for sample $sample"
-    
     forward input.bam
 }
 
@@ -162,9 +154,6 @@ run(input_files*.value.flatten()) {
     init + check_tools + 
     
     // Phase 1: resolve or create BAM files
-    // sample_channel * [
-    //     basecall_align_reads.when { input_data_type == 'x5' } + forward_sample_bam.when { input_data_type == 'bam' } + read_stats 
-    // ] + 
     make_mmi.when { ! new File(REF_MMI).exists() } +
         sample_channel * [
             basecall_align_reads.when { input_data_type[sample] == 'x5' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats 
