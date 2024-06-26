@@ -86,7 +86,7 @@ sniffles2_joint_call = {
 
     println "Inputs are: " + family_snfs*.value.flatten()
     
-    from(family_snfs*.value.flatten()) produce("${family}.sv.vcf.gz") {
+    from(family_snfs*.value.flatten()) produce("${family}.family.sv.vcf.gz") {
         exec """
             sniffles
                 --threads $threads
