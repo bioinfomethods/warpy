@@ -578,7 +578,7 @@ combine_family_vcfs = {
     
     println "Inputs are: " + family_vcfs*.value.flatten()
     
-    from(family_vcfs*.value.flatten()) produce("${family}.vcf.gz") {
+    from(family_vcfs*.value.flatten()) produce("${family}.family.vcf.gz") {
         exec """
           $tools.GROOVY -cp $XIMMER_GNGS_JAR $BASE/src/MergeFamilyVCF.groovy $inputs.vcf.gz | bgzip -c >  $output.vcf.gz
 
