@@ -302,18 +302,24 @@ post_to_cxp = {
 symbolic_alt = {
     
     var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
-    
-    output.dir = "sv"
 
-    exec """
-        gunzip -c $input.vcf.gz | 
-          $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
-        > $output.vcf
-    """
+    branch.sv_out = branch.family_branch ? branch.name : branch.sample
+    
+    output.dir = "sv/${branch.sv_out}"
+
+    transform(".vcf.gz") to(".vcf") {
+        exec """
+            gunzip -c $input.vcf.gz | 
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
+            > $output.vcf
+        """
+    }
 }
 
 sv_annotate = {
-    output.dir = "sv"
+
+    output.dir = "sv/${branch.sv_out}"
+
     exec """
         gatk SVAnnotate 
             -V $input.vcf
@@ -323,15 +329,13 @@ sv_annotate = {
     """
 }
 
-
-
 strvctvre_annotate = {
 
     doc "Run StrVCTVRE"
     
     requires PHYLOP100WAY : "Please set the location of PHYLOP100WAY"
 
-    output.dir = "sv"
+    output.dir = "sv/${branch.sv_out}"
 
     transform('vcf.gz') to('strvctvre.vcf.bgz') {
         exec """
@@ -343,4 +347,3 @@ strvctvre_annotate = {
         """
     }
 }
-

@@ -127,6 +127,10 @@ init = {
     }
 }
 
+init_family = {
+    branch.family_branch = true
+}
+
 // basecall_align_reads = segment {
 //     make_mmi.when { ! new File(REF_MMI).exists() } + input_groups * [ convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
 //         dorado + minimap2_align ] + merge_pass_calls
@@ -192,5 +196,5 @@ run(input_files*.value.flatten()) {
     ] +
 
     // Phase 3: family merging
-    family_channel * [ sniffles2_joint_call + annotate_sv, combine_family_vcfs ]
+    family_channel * [ init_family + sniffles2_joint_call + annotate_sv, combine_family_vcfs ]
 }
