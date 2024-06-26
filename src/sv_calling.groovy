@@ -46,7 +46,7 @@ sniffles2 = {
 sniffles2_for_trios = {
     var sniffles_args : ''
     
-    branch.dir = "sv/$sample"
+    branch.dir = "sv/snf"
 
     produce("${sample}.sniffles.snf") {
         exec """
