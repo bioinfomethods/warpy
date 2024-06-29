@@ -252,7 +252,7 @@ pileup_variants = {
                     --call_snp_only False
                     --gvcf ${calling.enable_gvcf ? "True" : "False"}
                     --enable_long_indel False
-                    --temp_file_dir $output.dir/${sample}_gvcf_tmp_path
+                    --temp_file_dir $output.dir/${sample}_${chunk.chr}_${chunk.from}_gvcf_tmp_path
                     --pileup
 
                 touch -a $output.vcf.optional
