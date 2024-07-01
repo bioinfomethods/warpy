@@ -179,9 +179,9 @@ run(input_files*.value.flatten()) {
             sniffles2 + filter_sv_calls + annotate_sv
          ] ],
 
-         // methylation: sample_channel * [ bam2bedmethyl ],
+         methylation: sample_channel * [ bam2bedmethyl ],
          
-         // str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
     ] +
 
     // Phase 3: family merging
