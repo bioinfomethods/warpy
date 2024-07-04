@@ -1,14 +1,10 @@
 package archie
 
-import archie.ArchieEventHandlers
 import archie.domain.pipelines.*
 import archie.domain.pipelines.PipelineAssetsCollector
 import archie.domain.pipelines.PipelineNamespace
 
-import bpipe.Dependencies
-import bpipe.Pipeline
 import bpipe.PipelineEvent
-import bpipe.PipelineFile
 
 import groovy.json.*
 
@@ -75,7 +71,7 @@ class ArchieEventHandlers {
         }
     }
 
-    static def init_hook = { def meta, def analysis_id, def project, def pipeline_script ->
+    static void init_hook(Object meta, String analysis_id, String project, String pipeline_script) {
         println "init_hook: Samples are $meta"
         assert "$analysis_id", "analysis_id parameter must be defined"
         assert "$project", "project parameter must be defined"
