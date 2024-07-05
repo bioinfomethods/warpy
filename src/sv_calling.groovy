@@ -103,47 +103,31 @@ sniffles2_joint_call = {
 }
 
 init_jasmine = {
-    // sample_bams = ['sample1': ['/tmp/sample1.bam'], 'sample2': ['/tmp/sample2.bam']]
-    // sample_vcfs = ['sample1': ['/tmp/sample1.vcf'], 'sample2': ['/tmp/sample2.vcf']]
-    println "init_jasmine: sample_bams=$sample_bams"
-    println "init_jasmine: sample_vcfs=$sample_vcfs"
-
-    def family_samples = meta*.value.grep { println(it);  it.family_id == family }
-    println "init_jasmine: family_samples=$family_samples"
-
+    def family_samples = meta*.value.grep { println(it); it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
-    println "init_jasmine: family_sample_identifiers=$family_sample_identifiers"
     
     def bamsListings = sample_bams
-      .findAll {k, v -> k in family_sample_identifiers}
+      .findAll { k, v -> k in family_sample_identifiers }
       .sort()
       .collect { k, v -> v }
       .flatten()
-      .join('\n')
+      .join('\\n')
 
     def vcfsListings = sample_vcfs
-      .findAll {k, v -> k in family_sample_identifiers}
+      .findAll { k, v -> k in family_sample_identifiers }
       .sort()
       .collect { k, v -> v }
       .flatten()
-      .join('\n')
+      .join('\\n')
 
-    println "init_jasmine: bam listings content: $bamsListings"
-    println "init_jasmine: vcf listings content: $vcfsListings"
-
-    produce("${family}.jasmine.in.bams.txt", "${family}.jasmine.in.vcfs.txt") {
+    produce("${family}.bam.listings.txt", "${family}.vcf.listings.txt") {
         output.dir = "sv/$family"
 
         groovy """
-            new File($output.in.bams.txt).text = $bamsListings
-            
-            new File($output.in.vcfs.txt).text = $vcfsListings
-        """
-        // exec """
-        //     echo "$bamsListings" > $output.in.bams.txt
+            new File('$output.bam.listings.txt').text = '''$bamsListings'''
 
-        //     echo "$vcfsListings" > $output.in.vcfs.txt
-        // """
+            new File('$output.vcf.listings.txt').text = '''$vcfsListings'''
+        """
     }
 }
 
