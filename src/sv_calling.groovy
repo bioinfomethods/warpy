@@ -13,6 +13,8 @@ filterBam = {
                 --write-index 
                 --reference $REF
         """
+
+        sample_bams.get(sample, []).add(output.toString())
     }
 }
 
@@ -98,6 +100,86 @@ sniffles2_joint_call = {
             bcftools index -t $output.vcf.gz
         """
     }
+}
+
+init_jasmine = {
+    // sample_bams = ['sample1': ['/tmp/sample1.bam'], 'sample2': ['/tmp/sample2.bam']]
+    // sample_vcfs = ['sample1': ['/tmp/sample1.vcf'], 'sample2': ['/tmp/sample2.vcf']]
+    println "init_jasmine: sample_bams=$sample_bams"
+    println "init_jasmine: sample_vcfs=$sample_vcfs"
+
+    def family_samples = meta*.value.grep { println(it);  it.family_id == family }
+    println "init_jasmine: family_samples=$family_samples"
+
+    def family_sample_identifiers = family_samples.collect { it.identifier }
+    println "init_jasmine: family_sample_identifiers=$family_sample_identifiers"
+    
+    def bamsListings = sample_bams
+      .findAll {k, v -> k in family_sample_identifiers}
+      .sort()
+      .collect { k, v -> v }
+      .flatten()
+      .join('\n')
+
+    def vcfsListings = sample_vcfs
+      .findAll {k, v -> k in family_sample_identifiers}
+      .sort()
+      .collect { k, v -> v }
+      .flatten()
+      .join('\n')
+
+    println "init_jasmine: bam listings content: $bamsListings"
+    println "init_jasmine: vcf listings content: $vcfsListings"
+
+    produce("${family}.jasmine.in.bams.txt", "${family}.jasmine.in.vcfs.txt") {
+        output.dir = "sv/$family"
+
+        groovy """
+            new File($output.in.bams.txt).text = $bamsListings
+            
+            new File($output.in.vcfs.txt).text = $vcfsListings
+        """
+        // exec """
+        //     echo "$bamsListings" > $output.in.bams.txt
+
+        //     echo "$vcfsListings" > $output.in.vcfs.txt
+        // """
+    }
+}
+
+jasmine_joint_call = {
+    doc 'Joint call SVs for a family using Jasmine'
+
+    requires family : 'family to process'
+
+    println "jasmine_joint_call: TODO"
+
+    // def family_samples = meta*.value.grep { println(it);  it.family_id == family }
+
+    // println "Samples to process for $family are ${family_samples*.identifier}"
+
+    // def family_snfs = family_samples*.identifier.collectEntries { [ it,  sample_snfs[it]] }
+    
+    // def samples_missing_snfs = family_snfs.grep { it.value == null }*.key
+    // if(samples_missing_snfs)
+    //     fail "Sample samples $samples_missing_snfs from family $family are missing SNFs (sample SV output file). Please check appropriate inputs have been provided"
+
+    // output.dir = "sv/$family"
+
+    // println "Inputs are: " + family_snfs*.value.flatten()
+    
+    // from(family_snfs*.value.flatten()) produce("${family}.family.sv.vcf.gz") {
+    //     exec """
+    //         sniffles
+    //             --threads $threads
+    //             --input $inputs
+    //             --vcf $output.prefix
+
+    //         bgzip -c $output.prefix > $output.vcf.gz
+
+    //         bcftools index -t $output.vcf.gz
+    //     """
+    // }
 }
 
 filter_sv_calls = {

@@ -140,6 +140,7 @@ forward_sample_bam = {
 }
 
 sample_vcfs = Collections.synchronizedMap([:])
+sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 
 annotate_sv = segment {
@@ -185,5 +186,9 @@ run(input_files*.value.flatten()) {
     ] +
 
     // Phase 3: family merging
-    family_channel * [ init_family + sniffles2_joint_call + annotate_sv, combine_family_vcfs ]
+    family_channel * [ 
+        init_family + sniffles2_joint_call + annotate_sv,
+        // init_jasmine + jasmine_joint_call + annotate_sv,
+        combine_family_vcfs,
+    ]
 }
