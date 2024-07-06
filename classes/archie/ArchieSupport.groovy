@@ -1,11 +1,11 @@
 package archie
 
+import archie.domain.AnalysisSamplesSheet
 import archie.domain.pipelines.*
 import archie.domain.pipelines.PipelineAssetsCollector
 import archie.domain.pipelines.PipelineNamespace
 
 import bpipe.PipelineEvent
-
 import groovy.json.*
 
 import java.nio.file.Path
@@ -23,8 +23,14 @@ import static archie.domain.pipelines.PipelineStageName.PIPELINE_FINISHED
 import static archie.utils.AnalysisUtils.createAnalysisUpdateMsgData
 import static archie.Utils.sendMessage
 
+class ArchieSupport {
 
-class ArchieEventHandlers {
+    def parseWarpySamples(File configFile) {
+        def result = AnalysisSamplesSheet.parseAnalysisSamplesSheet(configFile.toPath())
+                         .toPipelineFormat(PipelineNamespace.WARPY)
+
+        return result
+    }
 
     static def onPipelineStarted = { String analysis_id, String project, PipelineEvent type, String desc, Map<String, Object> details ->
         def pipeline_id = bpipe.Config.config.pid
@@ -84,7 +90,7 @@ class ArchieEventHandlers {
         def assetsCollector = PipelineAssetsCollector.find(scriptName, PipelineNamespace.WARPY)
 
         println "init_hook: Adding Archie pipeline handlers for analysis_id=$analysis_id, project=$project, pipeline_script=$pipeline_script"
-        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.STARTED, ArchieEventHandlers.onPipelineStarted.curry("$analysis_id", "$project"))
-        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.FINISHED, ArchieEventHandlers.onPipelineFinished.curry("$analysis_id", "$project", meta, assetsCollector))
+        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.STARTED, ArchieSupport.onPipelineStarted.curry("$analysis_id", "$project"))
+        bpipe.EventManager.instance.addListener(bpipe.PipelineEvent.FINISHED, ArchieSupport.onPipelineFinished.curry("$analysis_id", "$project", meta, assetsCollector))
     }
 }
