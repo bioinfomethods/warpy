@@ -1,4 +1,5 @@
 basecaller	basecall_model_name	clair3_model_name	clair3_nomodel_reason
+dorado	dna_r10.4.1_e8.2_400bps_hac@v4.3.0_5mC_5hmC@v1	r1041_e82_400bps_hac_v430	-
 dorado	dna_r10.4.1_e8.2_400bps_hac@v4.3.0	r1041_e82_400bps_hac_v430	-
 dorado	dna_r10.4.1_e8.2_400bps_hac@v4.2.0	r1041_e82_400bps_hac_v420	-
 dorado	dna_r10.4.1_e8.2_400bps_hac@v4.1.0	r1041_e82_400bps_hac_v410	-
@@ -14,6 +15,7 @@ dorado	dna_r10.4.1_e8.2_260bps_sup@v3.5.2	-	260bps models are not supported for 
 dorado	dna_r10.4.1_e8.2_400bps_fast@v3.5.2	-	data called with fast models is not suitable for variant calling
 dorado	dna_r10.4.1_e8.2_400bps_hac@v3.5.2	r1041_e82_400bps_hac_g632	-
 dorado	dna_r10.4.1_e8.2_400bps_sup@v3.5.2	r1041_e82_400bps_sup_g615	-
+dorado	dna_r10.4.1_e8.2_400bps_hac@v3.5.2	r1041_e82_400bps_hac_g632	-
 dorado	dna_r9.4.1_e8_fast@v3.4	-	data called with fast models is not suitable for variant calling
 dorado	dna_r9.4.1_e8_hac@v3.3	r941_prom_sup_g5014	-
 dorado	dna_r9.4.1_e8_sup@v3.3	r941_prom_sup_g5014	-
