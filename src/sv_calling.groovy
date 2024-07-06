@@ -37,6 +37,7 @@ sniffles2 = {
                 --output-rnames
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.bam
+                --allow-overwrite
                 --tandem-repeats ${calling.tr_bed} $sniffles_args
                 --vcf ${output.vcf.prefix}.tmp.vcf
 
@@ -59,6 +60,7 @@ sniffles2_for_trios = {
                 --sample-id ${sample}
                 --reference $REF
                 --output-rnames
+                --allow-overwrite
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.bam
                 --tandem-repeats ${calling.tr_bed} $sniffles_args
