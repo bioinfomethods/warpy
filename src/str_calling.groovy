@@ -16,7 +16,7 @@ call_str = {
                     --sample ${sample}
                     --tsv $output.tsv
                     -v $output.vcf.gz.prefix
-                    --sex ${sampleSex} $input.bam $REF
+                    --sex ${sampleSex.toLowerCase()} $input.bam $REF
                     --min_support 1
                     --min_cluster_size 1
 
