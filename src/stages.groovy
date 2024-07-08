@@ -101,21 +101,26 @@ rename_and_merge_demux_output = {
 
 
 minimap2_align = {
+
+    doc "Align FASTQ stored in unaligned BAM file (ubam)"
+
+    requires sample : 'the sample id being processed'
     
     def SAMTOOLS = tools.SAMTOOLS
     
     output.dir = 'align'
 
-    exec """
-        $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
-            | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
-            | $SAMTOOLS sort -@ $threads
-            | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
-            | $SAMTOOLS view -e '[qs] >= $calling.qscore_filter' -o $output.pass.bam -
+    produce("${sample}.pass.bam", "${sample}.fail.bam") {
+        exec """
+            $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
+                | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
+                | $SAMTOOLS sort -@ $threads
+                | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
+                | $SAMTOOLS view -e '[qs] >= $calling.qscore_filter' -o $output.pass.bam -
 
-        $SAMTOOLS index $output.pass.bam
-
-    """
+            $SAMTOOLS index $output.pass.bam
+        """
+    }
 
     forward(output.pass.bam)
 }
