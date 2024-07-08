@@ -80,6 +80,47 @@ make_mmi = {
     }
 }
 
+demultiplex = {
+
+    doc "Runs dorado demultiplexing"
+
+    try {
+        //demultiplex_limit.acquire()
+
+        output.dir="demux/${branch.name}"
+
+        produce("summary_counts.txt", "*.fastq.gz") {
+
+            exec """
+               mkdir $output.dir/input_tmp
+
+               cat $inputs.fastq.gz > $output.dir/input_tmp/combined_fastq_tmp.fastq.gz
+
+               $tools.DORADO demux 
+                    --barcode-both-ends
+                    --barcode-sequences $DESIGN/barcodes.fa
+                    --barcode-arrangement $DESIGN/arrangement.toml  
+                    --emit-fastq  
+                    --output-dir $output.dir  
+                    $output.dir/input_tmp/combined_fastq_tmp.fastq.gz
+
+                 TOTAL_LINES=\$(zcat $inputs.fastq.gz  | wc --lines)
+
+                 wc $output.dir/*.fastq | awk '{ print (\$1 / '\$TOTAL_LINES' ) "\\t" \$4 }' > $output.txt
+
+                 rm -v $output.dir/input_tmp/combined_fastq_tmp.fastq.gz
+
+                 pigz --best -p ${threads} $output.dir/*.fastq
+            """
+        }
+    }
+    finally {
+        //demultiplex_limit.release()
+    }
+}
+
+
+
 rename_and_merge_demux_output = {
 
     branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
@@ -592,65 +633,41 @@ combine_family_vcfs = {
     }
 }
 
-rename_and_merge_demux_output = {
 
-    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
+dorado_demux = {
 
-    output.dir = "fastq"
+    output.dir='dorado'
 
-    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
-        succeed "Not merging fastq for NTC"
-    }
+    // ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -sf $it $output.dir/inputs/$it.name;"}.join("\n") }
 
-    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
+    uses(dorados: 1) {
+		exec """
+			$tools.DORADO basecaller
+				$DRD_MODELS_PATH/$model.params.drd_model
+				$opts.dir
+				--barcode-both-ends
+				--barcode-sequences $DESIGN/barcodes.fa
+				--barcode-arrangement $DESIGN/arrangement.toml  
+				> $output.ubam
+
+		"""
+	}
+}
+
+dorado_demux_classify = {
+
+    output.dir = "dorado/demultiplexed"
+
+    def files = sample_info*.Sample_ID.collect { "${it}.ubam" }
+
+    produce(files) {
         exec """
-            echo "Renaming data for $sample with barcode no. $barcode"
+            $tools.DORADO demux --output-dir $output.dir --no-classify $input.ubam
 
-            zcat $inputs.fastq.gz > $output.fastq.gz
+            ${sample_info.collect { "mv -v twist_${it.barcodeno}.bam ${it.Sample_ID}.ubam;"}.join('\n')}
         """
     }
 }
-
-
-rename_and_merge_demux_output = {
-
-    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
-
-    output.dir = "fastq"
-
-    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
-        succeed "Not merging fastq for NTC"
-    }
-
-    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
-        exec """
-            echo "Renaming data for $sample with barcode no. $barcode"
-
-            zcat $inputs.fastq.gz > $output.fastq.gz
-        """
-    }
-}
-
-
-rename_and_merge_demux_output = {
-
-    branch.barcode = sample_info.find { it.Sample_ID == sample }.barcodeno
-
-    output.dir = "fastq"
-
-    if(sample.startsWith('NTC') || sample.endsWith('NTC')) {
-        succeed "Not merging fastq for NTC"
-    }
-
-    from("*_${barcode}.fastq.gz") produce("${sample}.fastq.gz") {
-        exec """
-            echo "Renaming data for $sample with barcode no. $barcode"
-
-            zcat $inputs.fastq.gz > $output.fastq.gz
-        """
-    }
-}
-
 
 rename_and_merge_demux_output = {
 
