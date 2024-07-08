@@ -69,7 +69,7 @@ dorado = {
 }
 
 make_mmi = {
-    output.dir = BASE + "/data/hg38"
+    output.dir = new File(REF).parentFile.absolutePath
 
     // nb: this could write into the reference directory
     // which is a little naughty
