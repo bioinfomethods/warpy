@@ -2,6 +2,10 @@
 
 Usage:
     prepare-alignments.py [options] <bam> <sv-vcf> <zip-name>
+
+Options:
+    --split-indels          Split alignments at insertions/deletions
+    --min-indel N           Threshold for splitting indels [default: 50].
 """
 
 import re
@@ -111,17 +115,19 @@ def split_cigar(cig, d):
     if parts[-1][1] in 'SH':
         parts = parts[:-1]
     
-    pieces = partition(parts, d)
+    if d is not None:
+        parts = partition(parts, d)
+
     (p, q) = lengths(leftClip)
     res = []
-    for piece in pieces:
+    for piece in parts:
         (p0, q0) = lengths(piece)
         res.append((p, q, ''.join([f'{n}{o}' for (n, o) in compress(piece)]), p0, q0, readLength - (q + q0)))
         p += p0
         q += q0
     return res
 
-def scan_reads_simple(bam, chrom, start, end):
+def scan_reads_simple(bam, chrom, start, end, seen):
     for a in bam.fetch(chrom, start, end):
         flg = a.flag
         if flg & 4 == 4: # unmapped
@@ -135,6 +141,12 @@ def scan_reads_simple(bam, chrom, start, end):
 
         chrom = a.reference_name
         pos = a.reference_start + 1
+
+        slug = (qname, chrom, pos)
+        if slug in seen:
+            continue
+        seen.add(slug)
+
         strand = "+"
         if flg & 16 > 0:
             strand = "-"
@@ -149,6 +161,12 @@ def scan_reads_simple(bam, chrom, start, end):
             parts = sa.split(",")
             chrom = parts[0]
             pos = int(parts[1])
+
+            slug = (qname, chrom, pos)
+            if slug in seen:
+                continue
+            seen.add(slug)
+
             strand = parts[2]
             cig = parts[3]
             qual = int(parts[4])
@@ -239,10 +257,73 @@ def sig(alleles, svlen):
     h.update(str(svlen).encode())
     return h.hexdigest()[:8]
 
-def main(args):
+def mainShallow(args):
     bamName = args["<bam>"]
     vcfName = args["<sv-vcf>"]
     zipName = args["<zip-name>"]
+
+    BIG = 1000
+    border = 50
+
+    nn = 0
+    out = zipfile.ZipFile(zipName, mode="w", compression=zipfile.ZIP_DEFLATED)
+    bam = pysam.AlignmentFile(bamName, "rb")
+    for rec in pysam.VariantFile(vcfName):
+        chrom = rec.chrom
+        start = rec.pos
+        stop = rec.stop
+        kind = rec.info["SVTYPE"]
+        svlen = 0
+        if "SVLEN" in rec.info:
+            svlen = rec.info["SVLEN"]
+        h = sig(rec.alleles, svlen)
+        key = f'{chrom}:{start}-{stop}-{kind}-{h}.json'
+        print(f'{key} {svlen}')
+        nn += 1
+        if nn & 255 == 0:
+            print(key)
+            break
+
+        seen = set()
+        items = set()
+        if start + border >= stop - border:
+            intervals = [(max(1, start - border), stop + border)]
+        else:
+            intervals = [(max(1, start - border), start + border), (max(1, stop  - border), stop + border)]
+        for (ivlStart, ivlEnd) in intervals:
+            for item in scan_reads_simple(bam, chrom, ivlStart, ivlEnd, seen):
+                (nm, segs) = item
+                for seg in sorted(segs):
+                    (chrom, pos, strand, cig, qual) = seg
+                    print(seg)
+                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None):
+                        items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
+                if len(items) > BIG:
+                    break
+
+        if len(items) == 0:
+            # no supplementary mappings!
+            # This is a todo case where
+            # we might want to split
+            # the CIGAR mappings.
+            continue
+
+        if len(items) > BIG:
+            print(f'dropping {key}')
+            continue
+        items = list(sorted(items))
+        for i in range(len(items)):
+            (nm, chrom, pos, strand, qual, off, rlen, qlen) = items[i]
+            items[i] = {"readid": nm, "chrom": chrom, "pos": pos, "strand": strand, "qual": qual, "offset": off, "rlen": rlen, "qlen": qlen}
+        out.writestr(key, json.dumps(items))
+    out.close()
+
+def mainDeep(args):
+    bamName = args["<bam>"]
+    vcfName = args["<sv-vcf>"]
+    zipName = args["<zip-name>"]
+
+    splitThreshold = int(args["--min-indel"])
 
     BIG = 1000
     border = 50
@@ -277,7 +358,7 @@ def main(args):
                 (nm, segs) = item
                 for seg in sorted(segs):
                     (chrom, pos, strand, cig, qual) = seg
-                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, 0-8 * abs(svlen)):
+                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, splitThreshold):
                         items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
                 if len(items) > BIG:
                     break
@@ -298,6 +379,11 @@ def main(args):
             items[i] = {"readid": nm, "chrom": chrom, "pos": pos, "strand": strand, "qual": qual, "offset": off, "rlen": rlen, "qlen": qlen}
         out.writestr(key, json.dumps(items))
     out.close()
+
+def main(args):
+    if args['--split-indels']:
+        return mainDeep(args)
+    mainShallow(args)
 
 if __name__ == "__main__":
     args = docopt.docopt(__doc__)
