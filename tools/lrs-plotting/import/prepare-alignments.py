@@ -117,6 +117,8 @@ def split_cigar(cig, d):
     
     if d is not None:
         parts = partition(parts, d)
+    else:
+        parts = [parts]
 
     (p, q) = lengths(leftClip)
     res = []
@@ -278,11 +280,10 @@ def mainShallow(args):
             svlen = rec.info["SVLEN"]
         h = sig(rec.alleles, svlen)
         key = f'{chrom}:{start}-{stop}-{kind}-{h}.json'
-        print(f'{key} {svlen}')
+
         nn += 1
         if nn & 255 == 0:
             print(key)
-            break
 
         seen = set()
         items = set()
@@ -295,7 +296,6 @@ def mainShallow(args):
                 (nm, segs) = item
                 for seg in sorted(segs):
                     (chrom, pos, strand, cig, qual) = seg
-                    print(seg)
                     for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None):
                         items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
                 if len(items) > BIG:
