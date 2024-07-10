@@ -425,7 +425,7 @@ prepare_sv_alignment_plots = {
         exec """
             set -uo pipefail
 
-            $tools.PREP_SV_ALIGN_PLOT/prepare-alignments.py
+            python $tools.LRS_PLOTTING_HOME/prepare-alignments.py
                 $input.bam
                 $input.vcf.gz
                 $output.zip
