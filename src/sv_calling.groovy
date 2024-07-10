@@ -415,3 +415,20 @@ strvctvre_annotate = {
         """
     }
 }
+
+
+prepare_sv_alignment_plots = {
+
+    output.dir = "results/plots"
+
+    produce("${sample}.zip") {
+        exec """
+            set -uo pipefail
+
+            $tools.PREP_SV_ALIGN_PLOT/prepare-alignments.py
+                $input.bam
+                $input.vcf.gz
+                $output.zip
+        """
+    }
+}
