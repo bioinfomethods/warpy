@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<div id="mydiv"></div>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="plotreads.js"></script>
+<script type="module">
+  const interesting = [
+    "./chr2:95946252-97156224-INV-9a7b1856.json",
+    "./chr1:44413848-44417306-DUP-c7d03980.json",
+    "./chr1:43593626-43594216-INV-26ebdd3f.json",
+    "./chr2:179550923-179551917-DUP-c4d1d4ae.json",
+    "./chr19:431549-432175-DEL-19d5b875.json",
+    "./chr19:8621708-8621708-INS-94cbe1bd.json",
+    "./chr1:16727934-16727977-DEL-371fe24a.json"
+  ];
+  for (const name of interesting) {
+    const rawData = await d3.json(name);
+
+    plot_long_reads(rawData, "#mydiv");
+  }
+  //const name = toc[248];
+  //const name = toc[1616];
+</script>
