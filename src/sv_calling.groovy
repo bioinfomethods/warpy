@@ -105,6 +105,9 @@ sniffles2_joint_call = {
 }
 
 init_jasmine = {
+
+    branch.family_branch = true
+
     def family_samples = meta*.value.grep { println(it); it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
     
