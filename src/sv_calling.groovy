@@ -389,8 +389,8 @@ symbolic_alt = {
 
     transform(".vcf.gz") to(".vcf") {
         exec """
-            gunzip -c $input.vcf.gz | 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE=="INS") v.alt = "<INS>" else if(v.info.SVTYPE=="DEL") v.alt = "<DEL>" }}}'
+            gunzip -c $input.vcf.gz |
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } } } }'
             > $output.vcf
         """
     }
