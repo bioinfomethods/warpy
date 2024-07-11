@@ -115,7 +115,7 @@ init_jasmine = {
       .flatten()
       .join('\\n')
 
-    def vcfsListings = sample_vcfs
+    def vcfsListings = sample_sniffles_vcfs
       .findAll { k, v -> k in family_sample_identifiers }
       .sort()
       .collect { k, v -> v }
@@ -133,39 +133,49 @@ init_jasmine = {
     }
 }
 
-jasmine_joint_call = {
+jasmine_merge = {
     doc 'Joint call SVs for a family using Jasmine'
 
     requires family : 'family to process'
 
-    println "jasmine_joint_call: TODO"
+    def family_samples = meta*.value.grep { println(it); it.family_id == family }
 
-    // def family_samples = meta*.value.grep { println(it);  it.family_id == family }
+    println "Jasmine: Samples to process for $family are ${family_samples*.identifier}"
 
-    // println "Samples to process for $family are ${family_samples*.identifier}"
-
-    // def family_snfs = family_samples*.identifier.collectEntries { [ it,  sample_snfs[it]] }
+    def family_sniffles_vcfs = family_samples*.identifier.collectEntries { [ it, sample_sniffles_vcfs[it]] }
     
-    // def samples_missing_snfs = family_snfs.grep { it.value == null }*.key
-    // if(samples_missing_snfs)
-    //     fail "Sample samples $samples_missing_snfs from family $family are missing SNFs (sample SV output file). Please check appropriate inputs have been provided"
+    output.dir = "sv/$family"
 
-    // output.dir = "sv/$family"
-
-    // println "Inputs are: " + family_snfs*.value.flatten()
+    println "Inputs are: " + family_sniffles_vcfs*.value.flatten()
     
-    // from(family_snfs*.value.flatten()) produce("${family}.family.sv.vcf.gz") {
-    //     exec """
-    //         sniffles
-    //             --threads $threads
-    //             --input $inputs
-    //             --vcf $output.prefix
+    produce("${family}.jasmine.family.sv.vcf.gz") {
+        exec """
+            jasmine 
+                threads=$threads 
+                out_dir=$output.dir 
+                genome_file=$REF 
+                file_list=$input.vcf.listings.txt 
+                bam_list=$input.bam.listings.txt 
+                out_file=$output.prefix
+                min_support=$jasmine_sv.min_support 
+                --mark_specific 
+                spec_reads=$jasmine_sv.spec_reads 
+                spec_len=$jasmine_sv.spec_len 
+                --pre_normalize 
+                --output_genotypes 
+                --clique_merging 
+                --dup_to_ins 
+                --normalize_type 
+                --require_first_sample 
+                --run_iris 
+                    iris_args=
+                        min_ins_length=$jasmine_sv.iris.min_ins_length,--rerunracon,--keep_long_variants
 
-    //         bgzip -c $output.prefix > $output.vcf.gz
+            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | bgzip -c - > $output.vcf.gz
 
-    //         bcftools index -t $output.vcf.gz
-    //     """
-    // }
+            tabix -p vcf $output.vcf.gz
+        """
+    }
 }
 
 filter_sv_calls = {
@@ -197,6 +207,8 @@ filter_sv_calls = {
 
             $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.vcf.gz.prefix | bgziptabix $output.vcf.gz
         """
+        
+        sample_sniffles_vcfs.get(sample, []).add(output.wf_sv.vcf.gz.prefix.toString())
     }
 }
 
@@ -378,7 +390,7 @@ symbolic_alt = {
     transform(".vcf.gz") to(".vcf") {
         exec """
             gunzip -c $input.vcf.gz | 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> if(v.info.SVTYPE=="INS") v.alt = "<INS>" }}'
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE=="INS") v.alt = "<INS>" else if(v.info.SVTYPE=="DEL") v.alt = "<DEL>" }}}'
             > $output.vcf
         """
     }
