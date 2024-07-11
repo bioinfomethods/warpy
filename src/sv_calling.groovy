@@ -107,12 +107,13 @@ sniffles2_joint_call = {
 init_jasmine = {
     def family_samples = meta*.value.grep { println(it); it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
-    
+
     def bamsListings = sample_bams
       .findAll { k, v -> k in family_sample_identifiers }
       .sort()
       .collect { k, v -> v }
       .flatten()
+      .unique()
       .join('\\n')
 
     def vcfsListings = sample_sniffles_vcfs
@@ -120,6 +121,7 @@ init_jasmine = {
       .sort()
       .collect { k, v -> v }
       .flatten()
+      .unique()
       .join('\\n')
 
     produce("${family}.bam.listings.txt", "${family}.vcf.listings.txt") {
@@ -138,16 +140,8 @@ jasmine_merge = {
 
     requires family : 'family to process'
 
-    def family_samples = meta*.value.grep { println(it); it.family_id == family }
-
-    println "Jasmine: Samples to process for $family are ${family_samples*.identifier}"
-
-    def family_sniffles_vcfs = family_samples*.identifier.collectEntries { [ it, sample_sniffles_vcfs[it]] }
-    
     output.dir = "sv/$family"
 
-    println "Inputs are: " + family_sniffles_vcfs*.value.flatten()
-    
     produce("${family}.jasmine.family.sv.vcf.gz") {
         exec """
             set -o pipefail
