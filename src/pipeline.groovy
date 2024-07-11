@@ -189,7 +189,7 @@ run(input_files*.value.flatten()) {
     // Phase 3: family merging
     family_channel * [ 
         init_family + sniffles2_joint_call + annotate_sv,
-        init_jasmine + jasmine_merge + annotate_sv,
+        init_family + init_jasmine + jasmine_merge + annotate_sv,
         combine_family_vcfs,
     ]
 }
