@@ -153,6 +153,8 @@ jasmine_merge = {
     
     produce("${family}.jasmine.family.sv.vcf.gz") {
         exec """
+            set -o pipefail
+
             jasmine 
                 threads=$threads 
                 out_dir=$output.dir 
