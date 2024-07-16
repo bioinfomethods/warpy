@@ -2,8 +2,10 @@
 
 Usage:
     prepare-alignments.py [options] <bam> <sv-vcf> <zip-name>
+    prepare-alignments.py -L [options] <bam> <locus>...
 
 Options:
+    -L                      Take one or more loci from the command line and write to stdout.
     --split-indels          Split alignments at insertions/deletions
     --min-indel N           Threshold for splitting indels [default: 50].
 """
@@ -259,6 +261,64 @@ def sig(alleles, svlen):
     h.update(str(svlen).encode())
     return h.hexdigest()[:8]
 
+def parseLocus(txt):
+    m = re.match(r'(chr[^:]*):(\d+)-(\d+)', txt)
+    if m is None:
+        return None
+    g = m.groups()
+    return (g[0], int(g[1]), int(g[2]))
+
+def mainFromLoci(args):
+    bamName = args["<bam>"]
+    lociText = args["<locus>"]
+
+    BIG = 1000
+    border = 50
+
+    loci = []
+    for locusText in lociText:
+        locus = parseLocus(locusText)
+        if locus is None:
+            print(f'could not parse locus "{locusText}"', sys.stderr)
+            return
+        loci.append(locus)
+
+    out = {}
+    bam = pysam.AlignmentFile(bamName, "rb")
+    for (chrom, start, stop) in loci:
+        seen = set()
+        items = set()
+        if start + border >= stop - border:
+            intervals = [(max(1, start - border), stop + border)]
+        else:
+            intervals = [(max(1, start - border), start + border), (max(1, stop  - border), stop + border)]
+        for (ivlStart, ivlEnd) in intervals:
+            for item in scan_reads_simple(bam, chrom, ivlStart, ivlEnd, seen):
+                (nm, segs) = item
+                for seg in sorted(segs):
+                    (chrom, pos, strand, cig, qual) = seg
+                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None):
+                        items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
+                if len(items) > BIG:
+                    break
+
+        if len(items) == 0:
+            # no supplementary mappings!
+            # This is a todo case where
+            # we might want to split
+            # the CIGAR mappings.
+            continue
+
+        if len(items) > BIG:
+            print(f'dropping {key}', sys.stderr)
+            continue
+        items = list(sorted(items))
+        for i in range(len(items)):
+            (nm, chrom, pos, strand, qual, off, rlen, qlen) = items[i]
+            items[i] = {"readid": nm, "chrom": chrom, "pos": pos, "strand": strand, "qual": qual, "offset": off, "rlen": rlen, "qlen": qlen}
+        out[locusText] = items
+    json.dump(out, sys.stdout, indent=2)
+
 def mainShallow(args):
     bamName = args["<bam>"]
     vcfName = args["<sv-vcf>"]
@@ -381,6 +441,8 @@ def mainDeep(args):
     out.close()
 
 def main(args):
+    if args['-L']:
+        return mainFromLoci(args)
     if args['--split-indels']:
         return mainDeep(args)
     mainShallow(args)
