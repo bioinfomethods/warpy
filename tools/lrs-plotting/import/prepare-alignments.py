@@ -293,7 +293,6 @@ def mainFromLoci(args):
         else:
             intervals = [(max(1, start - border), start + border), (max(1, stop  - border), stop + border)]
         for (ivlStart, ivlEnd) in intervals:
-            print(f'scanning {chrom}:{ivlStart}-{ivlEnd}', sys.stderr)
             for item in scan_reads_simple(bam, chrom, ivlStart, ivlEnd, seen):
                 (nm, segs) = item
                 for seg in sorted(segs):
