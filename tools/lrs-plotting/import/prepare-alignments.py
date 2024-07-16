@@ -279,7 +279,7 @@ def mainFromLoci(args):
     for locusText in lociText:
         locus = parseLocus(locusText)
         if locus is None:
-            print(f'could not parse locus "{locusText}"', sys.stderr)
+            print(f'could not parse locus "{locusText}"', file=sys.stderr)
             return
         loci.append(locus)
 
@@ -316,7 +316,7 @@ def mainFromLoci(args):
         for i in range(len(items)):
             (nm, chrom, pos, strand, qual, off, rlen, qlen) = items[i]
             items[i] = {"readid": nm, "chrom": chrom, "pos": pos, "strand": strand, "qual": qual, "offset": off, "rlen": rlen, "qlen": qlen}
-        out[locusText] = items
+        out[f'{chrom}:{start}-{stop}'] = items
     json.dump(out, sys.stdout, indent=2)
 
 def mainShallow(args):
