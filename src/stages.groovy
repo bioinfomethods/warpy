@@ -341,6 +341,9 @@ aggregate_pileup_variants = {
 select_het_snps = {
 
     branch.dir="split_folder/$sample"
+
+    if(chr == "chrM")
+        succeed "Ignore chrM for phasing"
     
     transform('.vcf.gz') to('.het_snps.vcf.gz') {
         exec """
