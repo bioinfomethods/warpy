@@ -1,0 +1,31 @@
+export type Options = {
+    width: number,
+    height: number,
+    marginTop: number,
+    marginRight: number,
+    marginBottom: number,
+    marginLeft: number,
+    gap: number,
+    groupBackground: "#fafafa",
+    guideColour: "#f0f0f0",
+    singleSegments: boolean,
+    numTicks: number,
+    enableFlipping: boolean,
+    randomizeColours: boolean,
+};
+
+export const optionDefaults: Options = {
+    width: 800,
+    height: 600,
+    marginTop: 50,
+    marginRight: 50,
+    marginBottom: 80,
+    marginLeft: 80,
+    gap: 30,
+    groupBackground: "#fafafa",
+    guideColour: "#f0f0f0",
+    singleSegments: false,
+    numTicks: 10,
+    enableFlipping: true,
+    randomizeColours: false,
+  };
