@@ -98,7 +98,7 @@ targets_by_chr = new gngs.BED(opts.targets).load().groupBy { it.chr }.collect { 
 genome 'hg38'
 
 
-contigs = channel(targets_by_chr*.chr.unique()).named('chr')
+contigs = channel(targets_by_chr*.chr.unique().grep { it != 'chrM' }).named('chr')
 
 sample_channel = channel(input_files).named('sample')
 
@@ -124,7 +124,7 @@ init = {
     
     produce("CONTIGS") {
         groovy """
-            new File('CONTIGS').text = new gngs.BED('$opts.targets').load()*.chr.unique().join('\\n') + '\\n'
+            new File('CONTIGS').text = new gngs.BED('$opts.targets').load()*.chr.unique().grep { it != 'chrM' }.join('\\n') + '\\n'
         """
     }
 }
