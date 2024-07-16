@@ -205,7 +205,7 @@ merge_pass_calls = {
 
     output.dir = 'align'
 
-    produce(sample + '.pass.bam') {
+    produce(sample + '.merged.pass.bam') {
         exec """
             $tools.SAMTOOLS merge $output.bam $inputs.pass.bam 
             -f 
