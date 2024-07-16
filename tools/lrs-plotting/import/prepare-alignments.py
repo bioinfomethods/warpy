@@ -310,7 +310,6 @@ def mainFromLoci(args):
             continue
 
         if len(items) > BIG:
-            print(f'dropping {key}', sys.stderr)
             continue
         items = list(sorted(items))
         for i in range(len(items)):

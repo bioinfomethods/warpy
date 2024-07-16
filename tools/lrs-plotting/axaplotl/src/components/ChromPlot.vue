@@ -2,7 +2,7 @@
 import { Segment } from "./segment";
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
-import { computed, ComputedRef, onMounted, ref } from "vue";
+import { computed, ComputedRef, onMounted, Ref, ref } from "vue";
 import * as d3 from "d3";
 import { toPng } from "html-to-image";
 
@@ -10,7 +10,7 @@ const props = defineProps<{
   chrom: string;
   segments: Segment[];
   options: Options;
-  colours: Map<string, number>;
+  colours: Map<string, string>;
 }>();
 
 type ReadInfo = {
@@ -172,8 +172,7 @@ const xScales = computed(() => {
 });
 
 function findColour(seg: Segment) {
-  const col = props.colours.get(seg.readid) || 0;
-  return d3.interpolateTurbo(col);
+  return props.colours.get(seg.readid) || "black";
 }
 
 function startMark(seg: Segment) {
@@ -203,6 +202,16 @@ const viewBox = computed(() => {
   const h = props.options.height;
   return `0 0 ${w} ${h}`;
 });
+
+const clickedSegment: Ref<string> = ref("");
+
+function clickline(seg: Segment) {
+  clickedSegment.value = seg.readid;
+}
+
+async function copyToClipboard() {
+  await navigator.clipboard.writeText(clickedSegment.value);
+}
 
 onMounted(() => {
   const opts = props.options;
@@ -388,7 +397,10 @@ onMounted(() => {
       .attr("stroke-width", 2)
       .attr("marker-start", (d) => startMark(d))
       .attr("marker-end", (d) => endMark(d))
-      .style("stroke-dasharray", (d) => dashes(d));
+      .style("stroke-dasharray", (d) => dashes(d))
+      .on("click", function (_e, d) {
+        clickline(d);
+      });
   });
 });
 
@@ -398,7 +410,6 @@ async function snap() {
     const dataUrl = await toPng(svgElem);
     const img = new Image();
     img.src = dataUrl;
-    //download(dataUrl, 'plot.png');
     const win = window.open();
     if (win) {
       win.document.body.style.width = "100%";
@@ -416,6 +427,10 @@ async function snap() {
       <g ref="yAxis"></g>
       <g v-for="grp in segmentGroups" :key="grp.grp" ref="groups"></g>
     </svg>
+    <h3>
+      {{ clickedSegment }}
+      <v-btn size="x-small" variant="plain" icon="mdi-clipboard-text" v-if="clickedSegment" @click="copyToClipboard"></v-btn>
+    </h3>
   </div>
 </template>
 

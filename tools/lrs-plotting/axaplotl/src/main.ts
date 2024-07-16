@@ -10,6 +10,7 @@ import '@mdi/font/css/materialdesignicons.css';
 import App from "./App.vue";
 
 const vuetify = createVuetify({
+  ssr: true,
   components,
   directives,
 });
