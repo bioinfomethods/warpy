@@ -1,5 +1,16 @@
-# Vue 3 + TypeScript + Vite
+#Long Read Alignment Plotting
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+To generate plots, run a command with the following form
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+```bash
+python3 ./import/prepare-alignments.py -L /path/to/my.bam chr1:91665905-91667512 > data.json
+```
+
+Then in the `axaplotl` directory, run
+
+```bash
+npm install
+npm run dev
+```
+
+Which will create an app running on port 3000, which you can point your browser to (i.e. <http://localhost:3000/>). In the app, use the file picker to select the json file you created with the alignments, and watch the plots appear!
