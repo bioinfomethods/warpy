@@ -203,7 +203,6 @@ filter_sv_calls = {
             set -o pipefail
 
             $BASE/scripts/get_filter_calls_command.py 
-                --target_bedfile $opts.targets
                 --vcf $input.vcf
                 --depth_bedfile $input.bed.gz
                 --min_sv_length $calling.min_sv_length
