@@ -142,6 +142,7 @@ forward_sample_bam = {
 sample_vcfs = Collections.synchronizedMap([:])
 sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
+sample_sniffles_vcfs = Collections.synchronizedMap([:])
 
 annotate_sv = segment {
   symbolic_alt + sv_annotate + strvctvre_annotate
@@ -177,7 +178,7 @@ run(input_files*.value.flatten()) {
 
          sv_calling: sample_channel * [ mosdepth + filterBam + [
             sniffles2_for_trios,
-            sniffles2 + filter_sv_calls + [ annotate_sv, prepare_sv_alignment_plots ]
+            sniffles2 + filter_sv_calls + annotate_sv
          ] ],
 
          methylation: sample_channel * [ bam2bedmethyl ],
@@ -188,7 +189,7 @@ run(input_files*.value.flatten()) {
     // Phase 3: family merging
     family_channel * [ 
         init_family + sniffles2_joint_call + annotate_sv,
-        // init_jasmine + jasmine_joint_call + annotate_sv,
+        init_family + init_jasmine + jasmine_merge + annotate_sv,
         combine_family_vcfs,
     ]
 }
