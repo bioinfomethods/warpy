@@ -1,3 +1,3 @@
 {
-    "HG002": "https://archie.mcri.edu.au/api/v1/hpc/sshtunnel/forward/manual_data_transfers/tmp/hg002.haplotagged.chr21_subset.clean.bam"
+    "HG002": "/bams/hg002.haplotagged.chr21_subset.clean.bam"
 }
