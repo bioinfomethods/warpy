@@ -55,10 +55,10 @@ const dataByChrom: ComputedRef<d3.InternMap<string, Segment[]>> = computed(() =>
 const readColours = computed(() => {
   const groups = d3.group(segments.value, (seg) => seg.readid);
   let nextColour = 0;
-  const res: Map<string, number> = new Map();
+  const res: Map<string, string> = new Map();
   groups.forEach((_segs, readid) => {
     const colour = nextColour++ / groups.size;
-    res.set(readid, colour);
+    res.set(readid, d3.interpolateTurbo(colour));
   });
   return res;
 });
