@@ -11,7 +11,6 @@ const props = defineProps<{
   options: Partial<Options>;
 }>();
 
-
 const options = computed(() => {
   return { ...optionDefaults, ...props.options };
 });
@@ -34,10 +33,10 @@ const dataByChrom: ComputedRef<d3.InternMap<string, Segment[]>> = computed(() =>
 const readColours = computed(() => {
   const groups = d3.group(props.segments, (seg) => seg.readid);
   let nextColour = 0;
-  const res: Map<string, number> = new Map();
+  const res: Map<string, string> = new Map();
   groups.forEach((_segs, readid) => {
     const colour = nextColour++ / groups.size;
-    res.set(readid, colour);
+    res.set(readid, d3.interpolateTurbo(colour));
   });
   return res;
 });
@@ -46,21 +45,14 @@ const chromtabs = defineModel();
 </script>
 
 <template>
-  <div>
-    <v-card>
-      <v-tabs v-model="chromtabs">
-        <v-tab v-for="chrom in chroms" :key="chrom" :value="chrom">{{ chrom }}</v-tab>
-      </v-tabs>
-      <v-tabs-window v-model="chromtabs">
-        <v-tabs-window-item v-for="chrom in chroms" :key="chrom" :value="chrom">
-          <ChromPlot
-          :chrom="chrom"
-            :segments="dataByChrom.get(chrom) || []"
-            :options="options"
-            :colours="readColours"
-          ></ChromPlot>
-        </v-tabs-window-item>
-      </v-tabs-window>
-    </v-card>
-  </div>
+  <v-sheet rounded border>
+    <v-tabs v-model="chromtabs">
+      <v-tab v-for="chrom in chroms" :key="chrom" :value="chrom">{{ chrom }}</v-tab>
+    </v-tabs>
+    <v-tabs-window v-model="chromtabs">
+      <v-tabs-window-item v-for="chrom in chroms" :key="chrom" :value="chrom">
+        <ChromPlot :chrom="chrom" :segments="dataByChrom.get(chrom) || []" :options="options" :colours="readColours"></ChromPlot>
+      </v-tabs-window-item>
+    </v-tabs-window>
+  </v-sheet>
 </template>

@@ -109,8 +109,8 @@ const loci = computed(() => {
 
 <template>
   <div>
-    <v-file-input v-model="selectedFile" accept="text/json"></v-file-input>
-    <v-card>
+    <v-file-input v-model="selectedFile" label="source data" hint="select a json file with alignment segments" accept="text/json"></v-file-input>
+    <v-card v-if="rawData">
       <v-tabs v-model="currentLocus">
         <v-tab v-for="(_segments, locus) in rawData" :key="locus" :value="locus">{{ locus }}</v-tab>
       </v-tabs>
