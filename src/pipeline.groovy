@@ -181,8 +181,7 @@ run(input_files*.value.flatten()) {
                     contigs * [
                         select_het_snps + phase_contig,
                         create_candidates + '%.bed' * [ evaluate_candidates ] 
-                    ] 
-                    + aggregate_full_align_variants
+                    ] >>> merge_phased_contigs +  [ haplotag_bam, aggregate_full_align_variants ]
              ] +
                 contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants + normalize_vcf,
          ],

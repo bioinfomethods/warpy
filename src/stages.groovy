@@ -392,6 +392,34 @@ phase_contig = {
     }
 }
 
+merge_phased_contigs = {
+
+    output.dir = "variants"
+
+    exec """
+        bcftools concat $inputs.phased.vcf.gz | bgzip -c > $output.phased.merge.vcf.gz
+    """
+}
+
+haplotag_bam = {
+
+    output.dir = "align"
+
+    transform('.bam') to('.haplotagged.bam') {
+
+        exec """
+            $tools.LONGPHASE haplotag 
+            -r $REF
+            -s $input.phased.merge.vcf.gz
+            -b $input.bam
+            -t 8 
+            -o $output.dir/${file(output.bam.prefix).name}
+
+            samtools index $output.bam
+        """
+    }
+}
+
 
 get_qual_filter = {
     
