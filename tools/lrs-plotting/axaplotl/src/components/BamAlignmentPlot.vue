@@ -12,11 +12,14 @@ import { scanSegments } from "./scanner";
 const props = defineProps<{
   bamUrl: string;
   bamHeaders?: any;
-  loci: [string, number, number][];
+  locus: [string, number, number];
   options: Partial<Options>;
 }>();
 
-
+const locusString = computed(() => {
+  const loc = props.locus;
+  return `${loc[0]}:${loc[1]}-${loc[2]}`;
+});
 
 const bam = computed(() => {
   const fileOpts: FilehandleOptions = {};
@@ -29,7 +32,7 @@ const bam = computed(() => {
 });
 
 const segments = computedAsync(async () => {
-  const segs = await scanSegments(bam.value, props.loci);
+  const segs = await scanSegments(bam.value, [props.locus]);
   return segs;
 });
 
@@ -76,6 +79,7 @@ const chromtabs = defineModel();
         <v-tabs-window-item v-for="chrom in chroms" :key="chrom" :value="chrom">
           <ChromPlot
           :chrom="chrom"
+            :locus="locusString"
             :segments="dataByChrom.get(chrom) || []"
             :options="options"
             :colours="readColours"

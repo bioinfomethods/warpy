@@ -4,6 +4,7 @@ import { computedAsync } from "@vueuse/core";
 import AlignmentPlot from "./components/AlignmentPlot.vue";
 import { Options } from "./components/options";
 import { Segment } from "./components/segment";
+import { computed, Ref } from "vue";
 
 const options: Partial<Options> = {};
 
@@ -72,18 +73,36 @@ function validLoci(txt: string): string | boolean {
 }
 */
 
-async function fetchFileData(file: File): Promise<{ [locus: string]: Segment[] }> {
+async function fetchFileData(file: File): Promise<string> {
   const blob = await file.text();
-  const data = JSON.parse(blob);
-  return data;
+  return blob;
+}
+
+async function computeSha1(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hash = await window.crypto.subtle.digest("SHA-1", data);
+  const hashArray = Array.from(new Uint8Array(hash)); // convert buffer to byte array
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""); // convert bytes to hex string
+  return hashHex;
 }
 
 const selectedFile = defineModel<File | null>("selectedFile");
 
-const rawData = computedAsync(() => {
+const rawText: Ref<string | undefined> = computedAsync(() => {
   const file = selectedFile.value;
   if (file != undefined) {
     return fetchFileData(file);
+  }
+});
+
+const signature = computedAsync(() => {
+  return computeSha1(rawText.value || "");
+});
+
+const rawData: Ref<{ [locus: string]: Segment[] } | undefined> = computed(() => {
+  if (rawText.value) {
+    return JSON.parse(rawText.value);
   }
 });
 
@@ -109,14 +128,19 @@ const loci = computed(() => {
 
 <template>
   <div>
-    <v-file-input v-model="selectedFile" label="source data" hint="select a json file with alignment segments" accept="text/json"></v-file-input>
+    <v-file-input
+      v-model="selectedFile"
+      label="source data"
+      hint="select a json file with alignment segments"
+      accept="text/json"
+    ></v-file-input>
     <v-card v-if="rawData">
       <v-tabs v-model="currentLocus">
-        <v-tab v-for="(_segments, locus) in rawData" :key="locus" :value="locus">{{ locus }}</v-tab>
+        <v-tab v-for="(_segments, locus) in rawData" :key="signature + locus" :value="locus">{{ locus }}</v-tab>
       </v-tabs>
       <v-tabs-window v-model="currentLocus">
-        <v-tabs-window-item v-for="(segments, locus) in rawData" :key="locus" :value="locus">
-          <AlignmentPlot :segments="segments" :options="options" />
+        <v-tabs-window-item v-for="(segments, locus) in rawData" :key="signature + locus" :value="locus">
+          <AlignmentPlot :locus="locus as string" :segments="segments" :options="options" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-card>

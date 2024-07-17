@@ -1,24 +1,36 @@
 <script setup lang="ts">
-import { Segment } from "./segment";
+import { ReadInfo, Segment, SegmentGroupInfo } from "./segment";
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
 import { computed, ComputedRef, onMounted, Ref, ref } from "vue";
+import { computedAsync } from "@vueuse/core";
+import ChromSegmentPlotBackground from "./ChromSegmentPlotBackground.vue";
+import ChromSegmentPlotForeground from "./ChromSegmentPlotForeground.vue";
 import * as d3 from "d3";
 import { toPng } from "html-to-image";
 
 const props = defineProps<{
+  locus: string;
   chrom: string;
   segments: Segment[];
   options: Options;
   colours: Map<string, string>;
 }>();
 
-type ReadInfo = {
-  start: number;
-  length: number;
-  begin: number;
-  flip: boolean;
-};
+async function computeSha1(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hash = await window.crypto.subtle.digest("SHA-1", data);
+  const hashArray = Array.from(new Uint8Array(hash)); // convert buffer to byte array
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""); // convert bytes to hex string
+  return hashHex;
+}
+
+const sig = computedAsync(() => {
+  const readIds: string[] = d3.map(props.segments, (seg) => seg.readid);
+  const digest = computeSha1(readIds.join());
+  return digest;
+});
 
 const readInfos = computed(() => {
   const res: Map<string, ReadInfo> = new Map();
@@ -52,19 +64,6 @@ function getReadInfo(readid: string): ReadInfo {
     throw `readid: ${readid} not found`;
   }
 }
-
-type SegmentGroupInfo = {
-  grp: string;
-  grpMin: number;
-  grpMax: number;
-  grpWidth: number;
-  ratio: number;
-  winMin: number;
-  winMax: number;
-  winWidth: number;
-  ticks: number;
-  segments: Segment[];
-};
 
 const segmentGroups = computed(() => {
   const uf = new UnionFind();
@@ -164,38 +163,8 @@ const yScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() =
     .range([opts.height - opts.marginBottom, opts.marginTop]);
 });
 
-const xScales = computed(() => {
-  const res = segmentGroups.value.map((grp) => {
-    return d3.scaleLinear().domain([grp.grpMin, grp.grpMax]).range([grp.winMin, grp.winMax]);
-  });
-  return res;
-});
-
-function findColour(seg: Segment) {
-  return props.colours.get(seg.readid) || "black";
-}
-
-function startMark(seg: Segment) {
-  const g = readInfos.value.get(seg.readid);
-  if (g && seg.offset == g.begin) {
-    return "url(#dotClosed)";
-  } else {
-    return "";
-  }
-}
-
-function endMark(seg: Segment): string {
-  const g = readInfos.value.get(seg.readid);
-  if (g && seg.offset + seg.qlen == g.length) {
-    return "url(#dotOpen)";
-  } else {
-    return "";
-  }
-}
-
 const svg = ref(null);
 const yAxis = ref(null);
-const groups = ref([]);
 
 const viewBox = computed(() => {
   const w = props.options.width;
@@ -205,20 +174,14 @@ const viewBox = computed(() => {
 
 const clickedSegment: Ref<string> = ref("");
 
-function clickline(seg: Segment) {
-  clickedSegment.value = seg.readid;
-}
-
 async function copyToClipboard() {
   await navigator.clipboard.writeText(clickedSegment.value);
 }
 
 onMounted(() => {
-  const opts = props.options;
-
   const s = d3.select(svg.value);
 
-  const dotSize = 4;
+  const dotSize = 5;
   const defs = s.append("svg:defs");
   defs
     .append("svg:marker")
@@ -250,13 +213,6 @@ onMounted(() => {
     .attr("stroke", "grey")
     .style("fill", "none");
 
-  if (false) {
-    s.append("g")
-      .append("text")
-      .text(props.chrom)
-      .attr("transform", `translate(${props.options.marginLeft + 10}, ${props.options.marginTop - 10})`);
-  }
-
   s.append("g")
     .attr("transform", `translate(12, ${props.options.height / 2})`)
     .append("text")
@@ -269,139 +225,6 @@ onMounted(() => {
     .append("text")
     .attr("text-anchor", "middle")
     .text(`position in reference (${props.chrom})`);
-
-  const gy = d3.select(yAxis.value);
-  const leftAxis = d3.axisLeft(yScale.value);
-  gy.attr("transform", `translate(${props.options.marginLeft}, 0)`).call(leftAxis as any);
-
-  function y1(seg: Segment): number {
-    let y = 0;
-    if (seg.strand == "+") {
-      y = seg.offset;
-    } else {
-      y = seg.offset + seg.qlen;
-    }
-    const info = readInfos.value.get(seg.readid);
-    if (info && info.flip) {
-      y = info.length - y;
-    }
-    return yScale.value(y);
-  }
-
-  function y2(seg: Segment): number {
-    let y = 0;
-    if (seg.strand == "+") {
-      y = seg.offset + seg.qlen;
-    } else {
-      y = seg.offset;
-    }
-    const info = readInfos.value.get(seg.readid);
-    if (info && info.flip) {
-      y = info.length - y;
-    }
-    return yScale.value(y);
-  }
-
-  groups.value.forEach((e, i) => {
-    const grp = segmentGroups.value[i];
-    /*
-     */
-    const xScale = xScales.value[i];
-
-    function x1(seg: Segment): number {
-      return xScale(seg.pos);
-    }
-
-    function x2(seg: Segment) {
-      return xScale(seg.pos + seg.rlen);
-    }
-
-    function dashes(_seg: Segment): string {
-      return "0";
-    }
-
-    const gg = d3.select(e);
-    gg.append("rect")
-      .attr("x", grp.winMin)
-      .attr("y", opts.marginTop)
-      .attr("width", grp.winWidth)
-      .attr("height", opts.height - (opts.marginBottom + opts.marginTop))
-      .attr("fill", opts.groupBackground);
-
-    gg.append("g")
-      .attr("transform", `translate(0,${opts.height - opts.marginBottom})`)
-      .call(d3.axisBottom(xScale).ticks(grp.ticks))
-      .selectAll("text")
-      .attr("y", 0)
-      .attr("x", 9)
-      .attr("dy", ".35em")
-      .attr("transform", "rotate(45)")
-      .style("text-anchor", "start");
-
-    gg.append("g")
-      .selectAll("line")
-      .data(grp.segments)
-      .enter()
-      .append("line")
-      .attr("x1", (d) => x1(d))
-      .attr("x2", (d) => x1(d))
-      .attr("y1", (_d) => yScale.value(readMin.value || 0))
-      .attr("y2", (_d) => yScale.value(readMax.value || 0))
-      .attr("stroke", (_d) => opts.guideColour)
-      .attr("stroke-width", 1);
-    gg.append("g")
-      .selectAll("line")
-      .data(grp.segments)
-      .enter()
-      .append("line")
-      .attr("x1", (d) => x2(d))
-      .attr("x2", (d) => x2(d))
-      .attr("y1", (_d) => yScale.value(readMin.value || 0))
-      .attr("y2", (_d) => yScale.value(readMax.value || 0))
-      .attr("stroke", (_d) => opts.guideColour)
-      .attr("stroke-width", 1);
-
-    gg.append("g")
-      .selectAll("line")
-      .data(grp.segments)
-      .enter()
-      .append("line")
-      .attr("x1", (_d) => opts.marginLeft)
-      .attr("x2", (_d) => opts.width - opts.marginRight)
-      .attr("y1", (d) => y1(d))
-      .attr("y2", (d) => y1(d))
-      .attr("stroke", (_d) => opts.guideColour)
-      .attr("stroke-width", 1);
-    gg.append("g")
-      .selectAll("line")
-      .data(grp.segments)
-      .enter()
-      .append("line")
-      .attr("x1", (_d) => opts.marginLeft)
-      .attr("x2", (_d) => opts.width - opts.marginRight)
-      .attr("y1", (d) => y2(d))
-      .attr("y2", (d) => y2(d))
-      .attr("stroke", (_d) => opts.guideColour)
-      .attr("stroke-width", 1);
-
-    gg.append("g")
-      .selectAll("line")
-      .data(grp.segments)
-      .enter()
-      .append("line")
-      .attr("x1", (d) => x1(d))
-      .attr("x2", (d) => x2(d))
-      .attr("y1", (d) => y1(d))
-      .attr("y2", (d) => y2(d))
-      .attr("stroke", (d) => findColour(d))
-      .attr("stroke-width", 2)
-      .attr("marker-start", (d) => startMark(d))
-      .attr("marker-end", (d) => endMark(d))
-      .style("stroke-dasharray", (d) => dashes(d))
-      .on("click", function (_e, d) {
-        clickline(d);
-      });
-  });
 });
 
 async function snap() {
@@ -425,7 +248,25 @@ async function snap() {
     <v-btn icon="mdi-camera" class="float-right snapshot" @click="snap()"></v-btn>
     <svg :view-box="viewBox" :width="options.width" :height="options.height" ref="svg">
       <g ref="yAxis"></g>
-      <g v-for="grp in segmentGroups" :key="grp.grp" ref="groups"></g>
+      <ChromSegmentPlotBackground v-for="grp in segmentGroups" :key="sig + grp.grp"
+      :y-scale="yScale"
+      :group="grp"
+      :read-info="readInfos"
+      :read-min="readMin || 0"
+      :read-max="readMax || 0"
+      :options="options"
+      :colours="colours"
+      ></ChromSegmentPlotBackground>
+      <ChromSegmentPlotForeground v-for="grp in segmentGroups" :key="sig + grp.grp"
+      :y-scale="yScale"
+      :group="grp"
+      :read-info="readInfos"
+      :read-min="readMin || 0"
+      :read-max="readMax || 0"
+      :options="options"
+      :colours="colours"
+      @selected-segment="(seg) => {clickedSegment = seg.readid; }"
+      ></ChromSegmentPlotForeground>
     </svg>
     <h3>
       {{ clickedSegment }}
