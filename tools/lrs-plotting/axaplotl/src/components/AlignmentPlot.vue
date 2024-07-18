@@ -5,7 +5,7 @@ import * as d3 from "d3";
 import { optionDefaults, Options } from "./options";
 import ChromPlot from "./ChromPlot.vue";
 import ReadTable from "./ReadTable.vue";
-import { ReadItem, Segment } from "./segment";
+import { Locus, ReadItem, Segment } from "./segment";
 
 const props = defineProps<{
   locus: string;
@@ -31,18 +31,29 @@ const readColours = computed(() => {
 });
 
 const readItems: ComputedRef<ReadItem[]> = computed(() => {
+  const lociByReadid: Map<string, Locus[]> = new Map();
+  props.segments.forEach((seg) => {
+    const readid: string = seg.readid;
+    const locus: Locus = { chrom: seg.chrom, start: seg.pos, end: seg.pos + seg.rlen };
+    const loci = lociByReadid.get(readid);
+    if (loci) {
+      loci.push(locus);
+    } else {
+      lociByReadid.set(readid, [locus]);
+    }
+  });
   const res: ReadItem[] = [];
   readColours.value.forEach((colour, readid) => {
-    res.push({ selected: true, colour: colour, readid: readid });
+    res.push({ selected: true, colour: colour, readid: readid, mapped: lociByReadid.get(readid) || [] });
   });
   return res;
 });
 
 function collectReadIds(segs: Segment[]): string[] {
   const seen: Set<string> = new Set();
-    segs.forEach((seg) => {
-      seen.add(seg.readid);
-    });
+  segs.forEach((seg) => {
+    seen.add(seg.readid);
+  });
   const res = Array.from(seen);
   res.sort();
   return res;
@@ -52,8 +63,8 @@ const selectedReadIds = ref<string[]>(collectReadIds(props.segments));
 
 const selectedDataByChrom: ComputedRef<Map<string, Segment[]>> = computed(() => {
   const wantedReads: Set<string> = new Set();
-    selectedReadIds.value.forEach((readid) => {
-      wantedReads.add(readid);
+  selectedReadIds.value.forEach((readid) => {
+    wantedReads.add(readid);
   });
 
   const res: Map<string, Segment[]> = new Map();

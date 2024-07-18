@@ -18,7 +18,9 @@ const emit = defineEmits<{
   selectedSegment: [seg: Segment]
 }>();
 
-
+const boundingBoxId = computed<string>(() => {
+  return `box-${props.group.winMin}-${props.group.winMax}-${props.options.height}`
+});
 
 const xScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() => {
   return d3.scaleLinear().domain([props.group.grpMin, props.group.grpMax]).range([props.group.winMin, props.group.winMax]);
@@ -112,5 +114,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <g ref="lineSegments"> </g>
+  <g>
+    <clipPath :id="boundingBoxId">
+    <rect :x="group.winMin" :y="0" :width="group.winMax - group.winMin" :height="options.height"></rect>
+    </clipPath>
+    <g ref="lineSegments" :clip-path="'url(#' + boundingBoxId + ')'"></g>
+  </g>
 </template>

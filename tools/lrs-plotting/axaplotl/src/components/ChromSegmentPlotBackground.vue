@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ReadInfo, Segment, SegmentGroupInfo } from "./segment";
+import { ReadInfo, Segment, SegmentGroupInfo, slug } from "./segment";
 import { Options } from "./options";
 import { computed, ComputedRef, onMounted, ref, watchEffect } from "vue";
 import * as d3 from "d3";
@@ -13,6 +13,10 @@ const props = defineProps<{
   options: Options;
   colours: Map<string, string>;
 }>();
+
+const boundingBoxId = computed<string>(() => {
+  return `box-${props.group.winMin}-${props.group.winMax}-${props.options.height}`
+});
 
 const xScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() => {
   return d3.scaleLinear().domain([props.group.grpMin, props.group.grpMax]).range([props.group.winMin, props.group.winMax]);
@@ -81,7 +85,7 @@ onMounted(() => {
 
     d3.select(guidesV1.value)
       .selectAll("line")
-      .data(props.group.segments)
+      .data(props.group.segments, (seg) => slug(seg as Segment))
       .enter()
       .append("line")
       .attr("x1", (d) => x1(d))
@@ -92,7 +96,7 @@ onMounted(() => {
       .attr("stroke-width", 1);
     d3.select(guidesV2.value)
       .selectAll("line")
-      .data(props.group.segments)
+      .data(props.group.segments, (seg) => slug(seg as Segment))
       .enter()
       .append("line")
       .attr("x1", (d) => x2(d))
@@ -102,28 +106,28 @@ onMounted(() => {
       .attr("stroke", (_d) => props.options.guideColour)
       .attr("stroke-width", 1);
 
-      d3.select(guidesH1.value)
-        .selectAll("line")
-        .data(props.group.segments)
-        .enter()
-        .append("line")
-        .attr("x1", (_d) => props.options.marginLeft)
-        .attr("x2", (_d) => props.options.width - props.options.marginRight)
-        .attr("y1", (d) => y1(d))
-        .attr("y2", (d) => y1(d))
-        .attr("stroke", (_d) => props.options.guideColour)
-        .attr("stroke-width", 1);
-      d3.select(guidesH2.value)
-        .selectAll("line")
-        .data(props.group.segments)
-        .enter()
-        .append("line")
-        .attr("x1", (_d) => props.options.marginLeft)
-        .attr("x2", (_d) => props.options.width - props.options.marginRight)
-        .attr("y1", (d) => y2(d))
-        .attr("y2", (d) => y2(d))
-        .attr("stroke", (_d) => props.options.guideColour)
-        .attr("stroke-width", 1);
+    d3.select(guidesH1.value)
+      .selectAll("line")
+      .data(props.group.segments, (seg) => slug(seg as Segment))
+      .enter()
+      .append("line")
+      .attr("x1", (_d) => props.options.marginLeft)
+      .attr("x2", (_d) => props.options.width - props.options.marginRight)
+      .attr("y1", (d) => y1(d))
+      .attr("y2", (d) => y1(d))
+      .attr("stroke", (_d) => props.options.guideColour)
+      .attr("stroke-width", 1);
+    d3.select(guidesH2.value)
+      .selectAll("line")
+      .data(props.group.segments, (seg) => slug(seg as Segment))
+      .enter()
+      .append("line")
+      .attr("x1", (_d) => props.options.marginLeft)
+      .attr("x2", (_d) => props.options.width - props.options.marginRight)
+      .attr("y1", (d) => y2(d))
+      .attr("y2", (d) => y2(d))
+      .attr("stroke", (_d) => props.options.guideColour)
+      .attr("stroke-width", 1);
   });
 });
 </script>
@@ -132,9 +136,15 @@ onMounted(() => {
   <g>
     <g :x="group.winMin" :y="options.marginTop" :width="group.winWidth" :height="panelHeight" :fill="options.groupBackground" />
     <g :transform="axisTransform" ref="xAxis" />
-    <g ref="guidesV1" />
-    <g ref="guidesV2" />
-    <g ref="guidesH1" />
-    <g ref="guidesH2" />
+    <g>
+      <clipPath :id="boundingBoxId">
+      <rect :x="group.winMin" :y="0" :width="group.winMax - group.winMin" :height="options.height"></rect>
+      </clipPath>
+
+      <g ref="guidesV1" :clip-path="'url(#' + boundingBoxId + ')'"/>
+      <g ref="guidesV2" :clip-path="'url(#' + boundingBoxId + ')'"/>
+      <g ref="guidesH1" :clip-path="'url(#' + boundingBoxId + ')'"/>
+      <g ref="guidesH2" :clip-path="'url(#' + boundingBoxId + ')'"/>
+    </g>
   </g>
 </template>

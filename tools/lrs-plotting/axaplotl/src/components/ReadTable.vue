@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Ref } from "vue";
-import { ReadItem } from "./segment";
+import { Locus, ReadItem } from "./segment";
 
 defineProps<{
   items: ReadItem[];
@@ -11,7 +11,12 @@ const selected: Ref<string[]> = defineModel<string[]>({ required: true });
 const headers = [
   { title: "Colour", value: "colour", align: "center", maxWidth: "2em" },
   { title: "Read ID", value: "readid", align: "start" },
+  { title: "Mapped Locations", value: "mapped", align: "start" },
 ];
+
+function formatLocus(locus: Locus): string {
+  return `${locus.chrom}:${locus.start}-${locus.end}`;
+}
 </script>
 
 <template>
@@ -30,6 +35,25 @@ const headers = [
       <template v-slot:item.colour="{ item }">
         <v-icon icon="mdi-circle" :color="item.colour"></v-icon>
       </template>
+      <template v-slot:item.mapped="{ item }">
+        <div class="text-left text-caption">
+          <span v-for="(locus, i) in item.mapped">
+            <span v-if="i > 0">, </span>
+            <span class="nowrap">
+              {{ formatLocus(locus) }}
+            </span>
+          </span>
+        </div>
+      </template>
     </v-data-table>
   </v-sheet>
 </template>
+
+<style scoped>
+.leftify {
+  width: 100%;
+}
+.nowrap {
+  white-space: nowrap;
+}
+</style>
