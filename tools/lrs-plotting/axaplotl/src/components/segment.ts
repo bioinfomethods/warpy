@@ -33,8 +33,61 @@ export type ReadInfo = {
   flip: boolean;
 };
 
+export type Locus = {
+  chrom: string;
+  start: number;
+  end: number;
+};
+
 export type ReadItem = {
   selected: boolean;
   colour: string;
   readid: string;
+  mapped: Locus[];
+};
+
+export function validLocus(txt: string): string | boolean {
+  const m = (txt || "").match(/^(chr([0-9]+|X|Y|MY)):([0-9]+)[-]([0-9]+)$/);
+  if (!m) {
+    return false;
+  }
+  //const chrom = m[1];
+  const begin = m[3];
+  const end = m[4];
+  if (end != undefined) {
+    if (parseInt(begin) > parseInt(end)) {
+      return "end must be greater than start";
+    }
+  }
+  return true;
+}
+
+export function parseLocus(txt: string): Locus | null {
+  const m = (txt || "").match(/^(chr([0-9]+|X|Y|MY)):([0-9]+)[-]([0-9]+)$/);
+  if (!m) {
+    return null;
+  }
+  const chrom = m[1];
+  const start = parseInt(m[3]);
+  const end = parseInt(m[4]);
+
+  return { chrom: chrom, start: start, end: end };
+}
+
+const suffixes: string[] = ["", "k", "m", "g", "t"];
+
+export function humanize(x: number): string {
+  const neg = (x < 0);
+  if (neg) {
+    x = -x;
+  }
+  let n = 0;
+  while (x >= 1000) {
+    n += 1;
+    x /= 1000;
+  }
+  x = Math.round(x);
+  const prefix = (neg? '-' : '');
+  const suffix = suffixes[n];
+  return `${prefix}${x}${suffix}bp`;
 }

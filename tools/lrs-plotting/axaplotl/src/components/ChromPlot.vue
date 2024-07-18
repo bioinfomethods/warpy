@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ReadInfo, Segment, SegmentGroupInfo } from "./segment";
+import { Locus, parseLocus, ReadInfo, Segment, SegmentGroupInfo, validLocus, humanize } from "./segment";
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
-import { computed, ComputedRef, onMounted, Ref, ref } from "vue";
+import { computed, ComputedRef, onMounted, Ref, ref, watchEffect } from "vue";
 import { computedAsync } from "@vueuse/core";
 import ChromSegmentPlotBackground from "./ChromSegmentPlotBackground.vue";
 import ChromSegmentPlotForeground from "./ChromSegmentPlotForeground.vue";
@@ -26,10 +26,160 @@ async function computeSha1(text: string): Promise<string> {
   return hashHex;
 }
 
+const scaleAutoSwitch = ref<boolean>(true);
+
 const sig = computedAsync(() => {
   const readIds: string[] = d3.map(props.segments, (seg) => seg.readid);
   const digest = computeSha1(readIds.join());
   return digest;
+});
+
+const refMin = computed<number>(() => {
+  return d3.min(props.segments, (seg) => seg.pos) || 0;
+});
+
+const refMax = computed<number>(() => {
+  return d3.max(props.segments, (seg) => seg.pos + seg.rlen) || 0;
+});
+
+const refRange = computed<number>(() => {
+  if (refMin.value && refMax.value) {
+    return refMax.value - refMin.value;
+  }
+  return 0;
+});
+
+const dataLocusText = computed<string>(() => {
+  if (refMin.value != 0 && refMax.value != 0) {
+    return `${props.chrom}:${refMin.value}-${refMax.value}`;
+  } else {
+    return "";
+  }
+});
+
+const dataLocus = computed<Locus | null>(() => {
+  if (dataLocusText.value) {
+    return parseLocus(dataLocusText.value);
+  }
+  return null;
+});
+
+const locusBoxText = ref<string>("");
+
+const locusText = ref<string>("");
+
+watchEffect(() => {
+  if (scaleAutoSwitch.value == false && (locusBoxText.value == undefined || locusBoxText.value == "") && dataLocusText.value) {
+    locusBoxText.value = dataLocusText.value;
+  }
+
+  if (locusBoxText.value && validLocus(locusBoxText.value) == true) {
+    locusText.value = locusBoxText.value;
+  }
+});
+
+const locusValue = computed<Locus | null>(() => {
+  if (locusText.value) {
+    return parseLocus(locusText.value);
+  }
+  return null;
+});
+
+const zoomOutScale = 1.1;
+
+function zoomIn() {
+  if (locusValue.value != null) {
+    const chrom = locusValue.value.chrom;
+    let start = locusValue.value.start;
+    let end = locusValue.value.end;
+    const middle = (start + end) / 2;
+    let range = end - start;
+    range /= zoomOutScale;
+    if (range < 100 || (refRange.value && range > 1.05 * refRange.value)) {
+      return;
+    }
+    start = Math.floor(middle - 0.5 * range);
+    end = Math.ceil(middle + 0.5 * range);
+    const locus = `${chrom}:${start}-${end}`;
+    locusBoxText.value = locus;
+  }
+}
+
+function zoomOut() {
+  if (locusValue.value != null) {
+    const chrom = locusValue.value.chrom;
+    let start = locusValue.value.start;
+    let end = locusValue.value.end;
+    const middle = (start + end) / 2;
+    let range = end - start;
+    range *= zoomOutScale;
+    if (range < 100 || (refRange.value && range > 1.05 * refRange.value)) {
+      return;
+    }
+    start = Math.floor(middle - 0.5 * range);
+    end = Math.ceil(middle + 0.5 * range);
+    const locus = `${chrom}:${start}-${end}`;
+    locusBoxText.value = locus;
+  }
+}
+
+const panScale = 0.1;
+
+function panLeft() {
+  if (locusValue.value != null) {
+    const chrom = locusValue.value.chrom;
+    let start = locusValue.value.start;
+    let end = locusValue.value.end;
+    let range = end - start;
+    const shift = Math.round(range * panScale);
+    if (shift == 0) {
+      return;
+    }
+    start -= shift;
+    end -= shift;
+    if (start < 0) {
+      return;
+    }
+    const locus = `${chrom}:${start}-${end}`;
+    locusBoxText.value = locus;
+  }
+}
+
+function panRight() {
+  if (locusValue.value != null) {
+    const chrom = locusValue.value.chrom;
+    let start = locusValue.value.start;
+    let end = locusValue.value.end;
+    let range = end - start;
+    const shift = Math.round(range * panScale);
+    if (shift == 0) {
+      return;
+    }
+    start += shift;
+    end += shift;
+    const locus = `${chrom}:${start}-${end}`;
+    locusBoxText.value = locus;
+  }
+}
+
+const everythingSegmentGroup = computed<SegmentGroupInfo>(() => {
+  const locus = scaleAutoSwitch.value ? dataLocus.value : locusValue.value;
+  const grpMin: number = locus?.start || 0;
+  const grpMax: number = locus?.end || 0;
+  const grpWidth = grpMax - grpMin;
+  const res: SegmentGroupInfo = {
+    grp: "all",
+    grpMin,
+    grpMax,
+    grpWidth,
+    ratio: 1.0,
+    winMin: props.options.marginLeft,
+    winMax: props.options.width - props.options.marginRight,
+    winWidth: props.options.marginRight - props.options.marginLeft,
+    ticks: props.options.numTicks,
+    segments: props.segments,
+  };
+  return res;
 });
 
 const readInfos = computed(() => {
@@ -165,6 +315,8 @@ const yScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() =
 
 const svg = ref(null);
 const yAxis = ref(null);
+const yAxisTitle = ref(null);
+const xAxisTitle = ref(null);
 
 const viewBox = computed(() => {
   const w = props.options.width;
@@ -213,14 +365,16 @@ onMounted(() => {
     .attr("stroke", "grey")
     .style("fill", "none");
 
-  s.append("g")
+  d3.select(yAxis.value).attr("transform", `translate(${props.options.marginLeft},0)`).call(d3.axisLeft(yScale.value) as any);
+
+  d3.select(yAxisTitle.value)
     .attr("transform", `translate(12, ${props.options.height / 2})`)
     .append("text")
     .attr("text-anchor", "middle")
     .attr("transform", "rotate(-90)")
     .text("position in read");
 
-  s.append("g")
+  d3.select(xAxisTitle.value)
     .attr("transform", `translate(${props.options.width / 2}, ${props.options.height - 12})`)
     .append("text")
     .attr("text-anchor", "middle")
@@ -245,28 +399,89 @@ async function snap() {
 
 <template>
   <div>
+    <v-card>
+      <v-card-actions>
+        <v-switch label="Auto scale" v-model="scaleAutoSwitch" color="primary"></v-switch>
+        <v-text-field
+          label="Locus"
+          :disabled="scaleAutoSwitch"
+          density="compact"
+          max-width="32em"
+          v-model="locusBoxText"
+          :rules="[validLocus]"
+          prepend-inner-icon="mdi-creation"
+          @click:prepend-inner="locusBoxText = dataLocusText"
+          append-inner-icon="mdi-refresh"
+        >
+        </v-text-field>
+        <v-btn icon="mdi-plus-circle-outline" density="compact" :disabled="scaleAutoSwitch" @click="zoomIn()"></v-btn>
+        <v-btn icon="mdi-minus-circle-outline" density="compact" :disabled="scaleAutoSwitch" @click="zoomOut()"></v-btn>
+        <v-btn icon="mdi-arrow-left-bold-circle-outline" density="compact" :disabled="scaleAutoSwitch" @click="panLeft()"></v-btn>
+        <v-btn icon="mdi-arrow-right-bold-circle-outline" density="compact" :disabled="scaleAutoSwitch" @click="panRight()"></v-btn>
+      </v-card-actions>
+      <span v-if="locusValue != null">{{ humanize(locusValue.end - locusValue.start) }}</span>
+    </v-card>
     <v-btn icon="mdi-camera" class="float-right snapshot" @click="snap()"></v-btn>
     <svg :view-box="viewBox" :width="options.width" :height="options.height" ref="svg">
       <g ref="yAxis"></g>
-      <ChromSegmentPlotBackground v-for="grp in segmentGroups" :key="sig + grp.grp"
-      :y-scale="yScale"
-      :group="grp"
-      :read-info="readInfos"
-      :read-min="readMin || 0"
-      :read-max="readMax || 0"
-      :options="options"
-      :colours="colours"
-      ></ChromSegmentPlotBackground>
-      <ChromSegmentPlotForeground v-for="grp in segmentGroups" :key="sig + grp.grp"
-      :y-scale="yScale"
-      :group="grp"
-      :read-info="readInfos"
-      :read-min="readMin || 0"
-      :read-max="readMax || 0"
-      :options="options"
-      :colours="colours"
-      @selected-segment="(seg) => {clickedSegment = seg.readid; }"
-      ></ChromSegmentPlotForeground>
+      <g ref="yAxisTitle"></g>
+      <g ref="xAxisTitle"></g>
+      <g v-if="scaleAutoSwitch">
+        <ChromSegmentPlotBackground
+          v-for="grp in segmentGroups"
+          :key="sig + grp.grp"
+          :y-scale="yScale"
+          :group="grp"
+          :read-info="readInfos"
+          :read-min="readMin || 0"
+          :read-max="readMax || 0"
+          :options="options"
+          :colours="colours"
+        ></ChromSegmentPlotBackground>
+        <ChromSegmentPlotForeground
+          v-for="grp in segmentGroups"
+          :key="sig + grp.grp"
+          :y-scale="yScale"
+          :group="grp"
+          :read-info="readInfos"
+          :read-min="readMin || 0"
+          :read-max="readMax || 0"
+          :options="options"
+          :colours="colours"
+          @selected-segment="
+            (seg) => {
+              clickedSegment = seg.readid;
+            }
+          "
+        ></ChromSegmentPlotForeground>
+      </g>
+      <g v-else>
+        <ChromSegmentPlotBackground
+        :key="locusText"
+          :y-scale="yScale"
+          :group="everythingSegmentGroup"
+          :read-info="readInfos"
+          :read-min="readMin || 0"
+          :read-max="readMax || 0"
+          :options="options"
+          :colours="colours"
+        ></ChromSegmentPlotBackground>
+        <ChromSegmentPlotForeground
+        :key="locusText"
+          :y-scale="yScale"
+          :group="everythingSegmentGroup"
+          :read-info="readInfos"
+          :read-min="readMin || 0"
+          :read-max="readMax || 0"
+          :options="options"
+          :colours="colours"
+          @selected-segment="
+            (seg) => {
+              clickedSegment = seg.readid;
+            }
+          "
+        ></ChromSegmentPlotForeground>
+      </g>
     </svg>
     <h3>
       {{ clickedSegment }}
