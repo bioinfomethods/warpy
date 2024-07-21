@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Locus, parseLocus, ReadInfo, Segment, SegmentGroupInfo, validLocus, humanize } from "./segment";
+import { Locus, parseLocus, ReadInfo, Segment, SegmentGroupInfo, validLocus } from "./segment";
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
+import { humanize } from "./utils";
 import { computed, ComputedRef, onMounted, Ref, ref, watchEffect } from "vue";
 import { computedAsync } from "@vueuse/core";
 import ChromSegmentPlotBackground from "./ChromSegmentPlotBackground.vue";
