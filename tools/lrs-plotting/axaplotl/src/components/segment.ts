@@ -73,21 +73,3 @@ export function parseLocus(txt: string): Locus | null {
 
   return { chrom: chrom, start: start, end: end };
 }
-
-const suffixes: string[] = ["", "k", "m", "g", "t"];
-
-export function humanize(x: number): string {
-  const neg = (x < 0);
-  if (neg) {
-    x = -x;
-  }
-  let n = 0;
-  while (x >= 1000) {
-    n += 1;
-    x /= 1000;
-  }
-  x = Math.round(x);
-  const prefix = (neg? '-' : '');
-  const suffix = suffixes[n];
-  return `${prefix}${x}${suffix}bp`;
-}
