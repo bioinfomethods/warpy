@@ -5,6 +5,7 @@ import AlignmentPlot from "./components/AlignmentPlot.vue";
 import { Options } from "./components/options";
 import { Segment } from "./components/segment";
 import { computed, Ref } from "vue";
+import { computeSha1 } from "./components/utils";
 
 const options: Partial<Options> = {};
 
@@ -76,15 +77,6 @@ function validLoci(txt: string): string | boolean {
 async function fetchFileData(file: File): Promise<string> {
   const blob = await file.text();
   return blob;
-}
-
-async function computeSha1(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hash = await window.crypto.subtle.digest("SHA-1", data);
-  const hashArray = Array.from(new Uint8Array(hash)); // convert buffer to byte array
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""); // convert bytes to hex string
-  return hashHex;
 }
 
 const selectedFile = defineModel<File | null>("selectedFile");
