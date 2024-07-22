@@ -2,7 +2,7 @@
 import { Locus, parseLocus, ReadInfo, Segment, SegmentGroupInfo, validLocus } from "./segment";
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
-import { humanize } from "./utils";
+import { computeSha1, humanize } from "./utils";
 import { computed, ComputedRef, onMounted, Ref, ref, watchEffect } from "vue";
 import { computedAsync } from "@vueuse/core";
 import ChromSegmentPlotBackground from "./ChromSegmentPlotBackground.vue";
@@ -17,15 +17,6 @@ const props = defineProps<{
   options: Options;
   colours: Map<string, string>;
 }>();
-
-async function computeSha1(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const hash = await window.crypto.subtle.digest("SHA-1", data);
-  const hashArray = Array.from(new Uint8Array(hash)); // convert buffer to byte array
-  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""); // convert bytes to hex string
-  return hashHex;
-}
 
 const scaleAutoSwitch = ref<boolean>(true);
 
