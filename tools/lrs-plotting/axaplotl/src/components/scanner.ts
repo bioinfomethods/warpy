@@ -1,5 +1,5 @@
 import { BamFile } from "@gmod/bam";
-import { Segment } from "./segment";
+import { RawSegment } from "./segment";
 
 function lengths(parts: [string, number][]): [number, number] {
   let p = 0;
@@ -103,7 +103,7 @@ function splitCigar(cig: string): [number, number, string, number, number, numbe
   ];
 }
 
-export async function scanSegments(bam: BamFile, loci: [string, number, number][]): Promise<Segment[]> {
+export async function scanSegments(bam: BamFile, loci: [string, number, number][]): Promise<RawSegment[]> {
   await bam.getHeader();
   const opts = {};
   const resItems: Set<[string, string, number, string, number, number, number, number]> = new Set();

@@ -6,7 +6,7 @@ import { RemoteFile, FilehandleOptions } from "generic-filehandle";
 import * as d3 from "d3";
 import { optionDefaults, Options } from "./options";
 import ChromPlot from "./ChromPlot.vue";
-import { Segment } from "./segment";
+import { makeSegment, Segment } from "./segment";
 import { scanSegments } from "./scanner";
 
 const props = defineProps<{
@@ -53,7 +53,7 @@ const chroms = computed(() => {
   return res;
 });
 
-const dataByChrom: ComputedRef<d3.InternMap<string, Segment[]>> = computed(() => d3.group(segments.value, (d) => d.chrom));
+const dataByChrom: ComputedRef<d3.InternMap<string, Segment[]>> = computed(() => d3.group(d3.map(segments.value, (d) => makeSegment(d)), (d) => d.chrom));
 
 const readColours = computed(() => {
   const groups = d3.group(segments.value, (seg) => seg.readid);
@@ -81,6 +81,7 @@ const chromtabs = defineModel();
           :chrom="chrom"
             :locus="locusString"
             :segments="dataByChrom.get(chrom) || []"
+            :reads="[]"
             :options="options"
             :colours="readColours"
           ></ChromPlot>
