@@ -1,4 +1,4 @@
-export type Segment = {
+export interface RawSegment {
   readid: string;
   chrom: string;
   pos: number;
@@ -9,8 +9,16 @@ export type Segment = {
   qlen: number;
 };
 
-export function slug(seg: Segment): string {
+export interface Segment extends RawSegment {
+  id: string;
+};
+
+export function slug(seg: RawSegment): string {
   return `${seg.readid}-${seg.chrom}-${seg.pos}-${seg.strand}-${seg.qual}-${seg.offset}-${seg.rlen}-${seg.qlen}`;
+}
+
+export function makeSegment(seg: RawSegment): Segment {
+  return {id: slug(seg), ...seg};
 }
 
 export type SegmentGroupInfo = {
@@ -43,6 +51,11 @@ export type ReadItem = {
   selected: boolean;
   colour: string;
   readid: string;
+  flipped: boolean;
+  strand: string;
+  start: string;
+  end: string;
+  length: number;
   mapped: Locus[];
 };
 
@@ -72,4 +85,14 @@ export function parseLocus(txt: string): Locus | null {
   const end = parseInt(m[4]);
 
   return { chrom: chrom, start: start, end: end };
+}
+
+export function flipSegmentIfNecessary(item: ReadItem, seg: Segment): Segment {
+  if (item.flipped) {
+    const res = {...seg};
+    res.strand = (seg.strand == "+" ? "-" : "+");
+    //res.offset = item.length - (seg.offset + seg.qlen);
+    return res;
+  }
+  return seg;
 }

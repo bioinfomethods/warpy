@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Locus, parseLocus, ReadInfo, Segment, SegmentGroupInfo, validLocus } from "./segment";
+import { Locus, parseLocus, ReadInfo, ReadItem, Segment, SegmentGroupInfo, validLocus } from "./segment";
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
 import { computeSha1, humanize } from "./utils";
@@ -14,6 +14,7 @@ const props = defineProps<{
   locus: string;
   chrom: string;
   segments: Segment[];
+  reads: ReadItem[];
   options: Options;
   colours: Map<string, string>;
 }>();
@@ -184,14 +185,6 @@ const readInfos = computed(() => {
       begin: d3.min(segs, (d) => d.offset) || 0,
       flip: false,
     };
-
-    if (props.options.enableFlipping) {
-      segs.forEach((seg) => {
-        if (seg.pos == info.start && seg.offset > info.begin) {
-          info.flip = true;
-        }
-      });
-    }
     res.set(readid, info);
   });
   return res;
@@ -206,6 +199,15 @@ function getReadInfo(readid: string): ReadInfo {
     throw `readid: ${readid} not found`;
   }
 }
+
+const readIndex = computed<Map<string,ReadItem>>(() => {
+  const res: Map<string,ReadItem> = new Map();
+  props.reads.forEach((item) => {
+    res.set(item.readid, item);
+  });
+  return res;
+});
+
 
 const segmentGroups = computed(() => {
   const uf = new UnionFind();
@@ -424,7 +426,7 @@ async function snap() {
           :key="sig + grp.grp"
           :y-scale="yScale"
           :group="grp"
-          :read-info="readInfos"
+          :reads="readIndex"
           :read-min="readMin || 0"
           :read-max="readMax || 0"
           :options="options"
@@ -435,7 +437,7 @@ async function snap() {
           :key="sig + grp.grp"
           :y-scale="yScale"
           :group="grp"
-          :read-info="readInfos"
+          :reads="readIndex"
           :read-min="readMin || 0"
           :read-max="readMax || 0"
           :options="options"
@@ -452,7 +454,7 @@ async function snap() {
         :key="locusText"
           :y-scale="yScale"
           :group="everythingSegmentGroup"
-          :read-info="readInfos"
+          :reads="readIndex"
           :read-min="readMin || 0"
           :read-max="readMax || 0"
           :options="options"
@@ -462,7 +464,7 @@ async function snap() {
         :key="locusText"
           :y-scale="yScale"
           :group="everythingSegmentGroup"
-          :read-info="readInfos"
+          :reads="readIndex"
           :read-min="readMin || 0"
           :read-max="readMax || 0"
           :options="options"

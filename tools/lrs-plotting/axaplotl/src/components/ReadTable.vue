@@ -2,15 +2,17 @@
 import { Ref } from "vue";
 import { Locus, ReadItem } from "./segment";
 
-defineProps<{
-  items: ReadItem[];
-}>();
+defineProps<{}>();
 
-const selected: Ref<string[]> = defineModel<string[]>({ required: true });
+const selected: Ref<string[]> = defineModel<string[]>("selected", { required: true });
+const items: Ref<ReadItem[]> = defineModel<ReadItem[]>("items", { required: true });
 
 const headers = [
-  { title: "Colour", value: "colour", align: "center", maxWidth: "2em" },
-  { title: "Read ID", value: "readid", align: "start" },
+  { title: "Colour", value: "colour", align: "center", maxWidth: "4em" },
+  { title: "Flipped", value: "flipped", align: "center", maxWidth: "4em" },
+  { title: "Strand", value: "strand", align: "center", maxWidth: "4em" },
+  { title: "Length", value: "length", align: "end"}, 
+  { title: "Read ID", value: "readid", align: "center" },
   { title: "Mapped Locations", value: "mapped", align: "start" },
 ];
 
@@ -34,6 +36,9 @@ function formatLocus(locus: Locus): string {
     >
       <template v-slot:item.colour="{ item }">
         <v-icon icon="mdi-circle" :color="item.colour"></v-icon>
+      </template>
+      <template v-slot:item.flipped="{ item }">
+        <v-checkbox-btn density="compact" v-model="item.flipped"></v-checkbox-btn>
       </template>
       <template v-slot:item.mapped="{ item }">
         <div class="text-left text-caption">

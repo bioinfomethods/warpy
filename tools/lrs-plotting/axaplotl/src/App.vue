@@ -3,9 +3,10 @@ import { computedAsync } from "@vueuse/core";
 //import BamAlignmentPlot from "./components/BamAlignmentPlot.vue";
 import AlignmentPlot from "./components/AlignmentPlot.vue";
 import { Options } from "./components/options";
-import { Segment } from "./components/segment";
+import { makeSegment, RawSegment, Segment } from "./components/segment";
 import { computed, Ref } from "vue";
 import { computeSha1 } from "./components/utils";
+import * as d3 from "d3";
 
 const options: Partial<Options> = {};
 
@@ -92,9 +93,16 @@ const signature = computedAsync(() => {
   return computeSha1(rawText.value || "");
 });
 
-const rawData: Ref<{ [locus: string]: Segment[] } | undefined> = computed(() => {
+const rawData: Ref<Map<string,Segment[]> | undefined> = computed(() => {
   if (rawText.value) {
-    return JSON.parse(rawText.value);
+    const raw: { [locus: string]: RawSegment[] } = JSON.parse(rawText.value);
+    
+    const res: Map<string,Segment[]> = new Map();
+    for (const locus in raw) {
+      const rawSegs = raw[locus] || [];
+      res.set(locus, d3.map(rawSegs, makeSegment))
+    }
+    return res;
   }
 });
 
@@ -128,10 +136,10 @@ const loci = computed(() => {
     ></v-file-input>
     <v-card v-if="rawData">
       <v-tabs v-model="currentLocus">
-        <v-tab v-for="(_segments, locus) in rawData" :key="signature + locus" :value="locus">{{ locus }}</v-tab>
+        <v-tab v-for="[locus, _segments] in rawData" :key="signature + locus" :value="locus">{{ locus }}</v-tab>
       </v-tabs>
       <v-tabs-window v-model="currentLocus">
-        <v-tabs-window-item v-for="(segments, locus) in rawData" :key="signature + locus" :value="locus">
+        <v-tabs-window-item v-for="[locus, segments] in rawData" :key="signature + locus" :value="locus">
           <AlignmentPlot :locus="locus as string" :segments="segments" :options="options" />
         </v-tabs-window-item>
       </v-tabs-window>

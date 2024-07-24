@@ -30,9 +30,13 @@ const readColours = computed(() => {
   return res;
 });
 
-const readItems: ComputedRef<ReadItem[]> = computed(() => {
+function constructReadItems(segs: Segment[]): ReadItem[] {
   const lociByReadid: Map<string, Locus[]> = new Map();
-  props.segments.forEach((seg) => {
+  const strands: Map<string, string> = new Map();
+  const starts: Map<string, [number, string]> = new Map();
+  const ends: Map<string, [number, string]> = new Map();
+  const lengths: Map<string, number> = new Map();
+  segs.forEach((seg) => {
     const readid: string = seg.readid;
     const locus: Locus = { chrom: seg.chrom, start: seg.pos, end: seg.pos + seg.rlen };
     const loci = lociByReadid.get(readid);
@@ -41,13 +45,53 @@ const readItems: ComputedRef<ReadItem[]> = computed(() => {
     } else {
       lociByReadid.set(readid, [locus]);
     }
+
+    strands.set(seg.readid, seg.strand);
+
+    const oldStart = starts.get(seg.readid) || [1e20, ""];
+    const segStart = seg.offset;
+    if (segStart < oldStart[0]) {
+      starts.set(seg.readid, [segStart, seg.id]);
+    }
+
+    const oldEnd = ends.get(seg.readid) || [-1, ""];
+    const segEnd = seg.offset + seg.qlen;
+    if (segEnd > oldEnd[0]) {
+      ends.set(seg.readid, [segEnd, seg.id]);
+    }
+
+    const oldLength = lengths.get(seg.readid) || 0;
+    if (segEnd > oldLength) {
+      lengths.set(seg.readid, segEnd);
+    }
   });
+
+  function getId(ids: Map<string, [number, string]>, readid: string): string {
+    const item = ids.get(readid);
+    if (item) {
+      return item[1];
+    }
+    return "";
+  }
+
   const res: ReadItem[] = [];
   readColours.value.forEach((colour, readid) => {
-    res.push({ selected: true, colour: colour, readid: readid, mapped: lociByReadid.get(readid) || [] });
+    res.push({
+      selected: true,
+      colour: colour,
+      readid: readid,
+      flipped: false,
+      strand: strands.get(readid) || "+",
+      start: getId(starts, readid),
+      end: getId(ends, readid),
+      length: lengths.get(readid) || 0,
+      mapped: lociByReadid.get(readid) || [],
+    });
   });
   return res;
-});
+}
+
+const readItems = ref<ReadItem[]>(constructReadItems(props.segments));
 
 function collectReadIds(segs: Segment[]): string[] {
   const seen: Set<string> = new Set();
@@ -91,11 +135,12 @@ const chromtabs = defineModel("chromtabs");
           :locus="locus"
           :chrom="chrom"
           :segments="selectedDataByChrom.get(chrom) || []"
+          :reads="readItems"
           :options="options"
           :colours="readColours"
         ></ChromPlot>
       </v-tabs-window-item>
     </v-tabs-window>
-    <ReadTable :items="readItems" v-model="selectedReadIds"></ReadTable>
+    <ReadTable v-model:selected="selectedReadIds" v-model:items="readItems"></ReadTable>
   </v-sheet>
 </template>
