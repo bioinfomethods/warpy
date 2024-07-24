@@ -10,7 +10,6 @@ const items: Ref<ReadItem[]> = defineModel<ReadItem[]>("items", { required: true
 const headers = [
   { title: "Colour", value: "colour", align: "center", maxWidth: "4em" },
   { title: "Flipped", value: "flipped", align: "center", maxWidth: "4em" },
-  { title: "Strand", value: "strand", align: "center", maxWidth: "4em" },
   { title: "Length", value: "length", align: "end"}, 
   { title: "Read ID", value: "readid", align: "center" },
   { title: "Mapped Locations", value: "mapped", align: "start" },
