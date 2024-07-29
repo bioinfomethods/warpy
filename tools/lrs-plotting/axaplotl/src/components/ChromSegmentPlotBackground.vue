@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { flipSegmentIfNecessary, ReadItem, Segment, SegmentGroupInfo, slug } from "./segment";
+import { flipSegmentIfNecessary, ReadItem, Segment, SegmentGroupInfo } from "./segment";
 import { Options } from "./options";
 import { computed, ComputedRef, onMounted, ref, watchEffect } from "vue";
 import * as d3 from "d3";
@@ -60,11 +60,30 @@ function x2(seg: Segment) {
   return xScale.value(seg.pos + seg.rlen);
 }
 
+const verticalGuidePositions = computed<number[]>(() => {
+  const res: number[] = [];
+  if (segments.value) {
+    segments.value.forEach((seg) => {
+      res.push(x1(seg));
+      res.push(x2(seg));
+    });
+  }
+  return [...new Set(res)];
+});
+
+const horizontalGuidePositions = computed<number[]>(() => {
+  const res: number[] = [];
+  if (segments.value) {
+    segments.value.forEach((seg) => {
+      res.push(y1(seg));
+      res.push(y2(seg));
+    });
+  }
+  return [...new Set(res)];
+});
 const xAxis = ref(null);
-const guidesV1 = ref(null);
-const guidesV2 = ref(null);
-const guidesH1 = ref(null);
-const guidesH2 = ref(null);
+const guidesV = ref(null);
+const guidesH = ref(null);
 
 onMounted(() => {
   watchEffect(() => {
@@ -77,31 +96,15 @@ onMounted(() => {
       .attr("transform", "rotate(45)")
       .style("text-anchor", "start");
 
-    d3.select(guidesV1.value)
+    d3.select(guidesV.value)
       .selectAll("line")
-      .data(segments.value, (seg) => slug(seg as Segment))
+      .data(verticalGuidePositions.value, (n) => (n as number).toString())
       .join(
         (enter) =>
           enter
             .append("line")
-            .attr("x1", (d) => x1(d))
-            .attr("x2", (d) => x1(d))
-            .attr("y1", (_d) => props.yScale(props.readMin))
-            .attr("y2", (_d) => props.yScale(props.readMax))
-            .attr("stroke", (_d) => props.options.guideColour)
-            .attr("stroke-width", 1),
-        (update) => update,
-        (exit) => exit.remove()
-      );
-    d3.select(guidesV2.value)
-      .selectAll("line")
-      .data(segments.value, (seg) => slug(seg as Segment))
-      .join(
-        (enter) =>
-          enter
-            .append("line")
-            .attr("x1", (d) => x2(d))
-            .attr("x2", (d) => x2(d))
+            .attr("x1", (d) => d)
+            .attr("x2", (d) => d)
             .attr("y1", (_d) => props.yScale(props.readMin))
             .attr("y2", (_d) => props.yScale(props.readMax))
             .attr("stroke", (_d) => props.options.guideColour)
@@ -110,33 +113,17 @@ onMounted(() => {
         (exit) => exit.remove()
       );
 
-    d3.select(guidesH1.value)
+    d3.select(guidesH.value)
       .selectAll("line")
-      .data(segments.value, (seg) => slug(seg as Segment))
+      .data(horizontalGuidePositions.value, (n) => (n as number).toString())
       .join(
         (enter) =>
           enter
             .append("line")
             .attr("x1", (_d) => props.options.marginLeft)
             .attr("x2", (_d) => props.options.width - props.options.marginRight)
-            .attr("y1", (d) => y1(d))
-            .attr("y2", (d) => y1(d))
-            .attr("stroke", (_d) => props.options.guideColour)
-            .attr("stroke-width", 1),
-        (update) => update,
-        (exit) => exit.remove()
-      );
-    d3.select(guidesH2.value)
-      .selectAll("line")
-      .data(segments.value, (seg) => slug(seg as Segment))
-      .join(
-        (enter) =>
-          enter
-            .append("line")
-            .attr("x1", (_d) => props.options.marginLeft)
-            .attr("x2", (_d) => props.options.width - props.options.marginRight)
-            .attr("y1", (d) => y2(d))
-            .attr("y2", (d) => y2(d))
+            .attr("y1", (d) => d)
+            .attr("y2", (d) => d)
             .attr("stroke", (_d) => props.options.guideColour)
             .attr("stroke-width", 1),
         (update) => update,
@@ -155,10 +142,8 @@ onMounted(() => {
         <rect :x="group.winMin" :y="0" :width="group.winMax - group.winMin" :height="options.height"></rect>
       </clipPath>
 
-      <g ref="guidesV1" :clip-path="'url(#' + boundingBoxId + ')'" />
-      <g ref="guidesV2" :clip-path="'url(#' + boundingBoxId + ')'" />
-      <g ref="guidesH1" :clip-path="'url(#' + boundingBoxId + ')'" />
-      <g ref="guidesH2" :clip-path="'url(#' + boundingBoxId + ')'" />
+      <g ref="guidesV" :clip-path="'url(#' + boundingBoxId + ')'" />
+      <g ref="guidesH" :clip-path="'url(#' + boundingBoxId + ')'" />
     </g>
   </g>
 </template>
