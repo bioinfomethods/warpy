@@ -1,12 +1,7 @@
 <script setup lang="ts">
-import { computedAsync } from "@vueuse/core";
-//import BamAlignmentPlot from "./components/BamAlignmentPlot.vue";
-import AlignmentPlot from "./components/AlignmentPlot.vue";
+import StaticPlot from "./components/StaticPlot.vue";
+import DynamicPlot from "./components/DynamicPlot.vue";
 import { Options } from "./components/options";
-import { makeSegment, RawSegment, Segment } from "./components/segment";
-import { computed, Ref } from "vue";
-import { computeSha1 } from "./components/utils";
-import * as d3 from "d3";
 
 const options: Partial<Options> = {};
 
@@ -75,38 +70,6 @@ function validLoci(txt: string): string | boolean {
 }
 */
 
-async function fetchFileData(file: File): Promise<string> {
-  const blob = await file.text();
-  return blob;
-}
-
-const selectedFile = defineModel<File | null>("selectedFile");
-
-const rawText: Ref<string | undefined> = computedAsync(() => {
-  const file = selectedFile.value;
-  if (file != undefined) {
-    return fetchFileData(file);
-  }
-});
-
-const signature = computedAsync(() => {
-  return computeSha1(rawText.value || "");
-});
-
-const rawData: Ref<Map<string,Segment[]> | undefined> = computed(() => {
-  if (rawText.value) {
-    const raw: { [locus: string]: RawSegment[] } = JSON.parse(rawText.value);
-    
-    const res: Map<string,Segment[]> = new Map();
-    for (const locus in raw) {
-      const rawSegs = raw[locus] || [];
-      res.set(locus, d3.map(rawSegs, makeSegment))
-    }
-    return res;
-  }
-});
-
-const currentLocus = defineModel<string>("currentLocus");
 /*
 const rawLoci = defineModel<string>("rawLoci", { default: "chr21:44416000-44423001" });
 
@@ -124,38 +87,23 @@ const loci = computed(() => {
   return res;
 });
 */
+
+const staticOrDynamic = defineModel<string>("staticOrDynamic");
 </script>
 
 <template>
-  <div>
-    <v-file-input
-      v-model="selectedFile"
-      label="source data"
-      hint="select a json file with alignment segments"
-      accept="text/json"
-    ></v-file-input>
-    <v-card v-if="rawData">
-      <v-tabs v-model="currentLocus">
-        <v-tab v-for="[locus, _segments] in rawData" :key="signature + locus" :value="locus">{{ locus }}</v-tab>
-      </v-tabs>
-      <v-tabs-window v-model="currentLocus">
-        <v-tabs-window-item v-for="[locus, segments] in rawData" :key="signature + locus" :value="locus">
-          <AlignmentPlot :locus="locus as string" :segments="segments" :options="options" />
-        </v-tabs-window-item>
-      </v-tabs-window>
-    </v-card>
-    <!--
-      <v-select label="Sample" :items="samples" v-model="selectedSample"></v-select>
-      <v-text-field
-        clearable
-        label="Locus/Loci"
-        hint="space separated for multiple"
-        placeholder="chr7:6007774-6098582"
-        :rules="[validLoci]"
-        v-model="rawLoci"
-      ></v-text-field>
-      <BamAlignmentPlot v-if="selectedBam" :bam-url="selectedBam" :bam-headers="bamHeaders" :loci="loci" :options="options" />
-    -->
-    <v-card> </v-card>
-  </div>
+  <v-sheet>
+    <v-tabs v-model="staticOrDynamic">
+      <v-tab value="static">Precomputed Alignment Summaries</v-tab>
+      <v-tab value="dynamic">Alignment Summaries from BAM</v-tab>
+    </v-tabs>
+    <v-tabs-window v-model="staticOrDynamic">
+      <v-tabs-window-item value="static">
+        <StaticPlot :options="options"></StaticPlot>
+      </v-tabs-window-item>
+      <v-tabs-window-item value="dynamic">
+        <DynamicPlot :options="options"></DynamicPlot>
+      </v-tabs-window-item>
+    </v-tabs-window>
+  </v-sheet>
 </template>

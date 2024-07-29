@@ -2,37 +2,27 @@
 import { computed, ComputedRef } from "vue";
 import { computedAsync } from "@vueuse/core";
 import { BamFile } from "@gmod/bam";
-import { RemoteFile, FilehandleOptions } from "generic-filehandle";
 import * as d3 from "d3";
 import { optionDefaults, Options } from "./options";
 import ChromPlot from "./ChromPlot.vue";
-import { makeSegment, Segment } from "./segment";
+import { Locus, makeSegment, RawSegment, Segment } from "./segment";
 import { scanSegments } from "./scanner";
+import { computeSha1 } from "./utils";
 
 const props = defineProps<{
-  bamUrl: string;
-  bamHeaders?: any;
-  locus: [string, number, number];
+  bam: BamFile;
+  loci: Locus[];
   options: Partial<Options>;
 }>();
 
 const locusString = computed(() => {
-  const loc = props.locus;
-  return `${loc[0]}:${loc[1]}-${loc[2]}`;
-});
-
-const bam = computed(() => {
-  const fileOpts: FilehandleOptions = {};
-  if (props.bamHeaders) {
-    fileOpts.headers = props.bamHeaders;
-  }
-  const bamFilehandle = new RemoteFile(props.bamUrl, fileOpts);
-  const baiFilehandle = new RemoteFile(props.bamUrl + ".bai", fileOpts);
-  return new BamFile({ bamFilehandle: bamFilehandle, baiFilehandle: baiFilehandle });
+  return d3.map(props.loci, (locus) => `${locus.chrom}:${locus.start}-${locus.end}`).join(",");
 });
 
 const segments = computedAsync(async () => {
-  const segs = await scanSegments(bam.value, [props.locus]);
+  console.log("scanning...");
+  const segs = await scanSegments(props.bam, props.loci);
+  console.log(segs);
   return segs;
 });
 
@@ -53,7 +43,12 @@ const chroms = computed(() => {
   return res;
 });
 
-const dataByChrom: ComputedRef<d3.InternMap<string, Segment[]>> = computed(() => d3.group(d3.map(segments.value, (d) => makeSegment(d)), (d) => d.chrom));
+const dataByChrom: ComputedRef<d3.InternMap<string, Segment[]>> = computed(() =>
+  d3.group(
+    d3.map(segments.value, (d) => makeSegment(d)),
+    (d) => d.chrom
+  )
+);
 
 const readColours = computed(() => {
   const groups = d3.group(segments.value, (seg) => seg.readid);
@@ -66,19 +61,44 @@ const readColours = computed(() => {
   return res;
 });
 
-const chromtabs = defineModel();
+const chromtabs = defineModel("chromtabs");
+
+const jsonBlob = computed<string>(() => {
+  const loc = props.loci[0];
+  const data = segments.value || null;
+  const res: {[locus:string]: (RawSegment[] | null)} = {};
+  res[`${loc.chrom}:${loc.start}-${loc.end}`] = data;
+  return JSON.stringify(res);
+});
+
+async function saveJsonBlob() {
+  const sha = await computeSha1(locusString.value);
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonBlob.value);
+  const dlAnchorElem = document.getElementById("downloadAnchor");
+  dlAnchorElem?.setAttribute("href", dataStr);
+  dlAnchorElem?.setAttribute("download", `${sha.slice(-12)}.json`);
+  dlAnchorElem?.click();
+}
 </script>
 
 <template>
   <div>
-    <v-card>
+    <v-card v-if="segments && segments.length > 0">
+      <v-card-title>
+        Scanning the <span v-if="loci.length > 1">loci</span><span v-else>locus</span>{{ " " }}
+        <span v-for="(locus, i) in loci" :key="`${locus.chrom}:${locus.start}-${locus.end}`">
+          <span v-if="i > 0">, </span>{{ `${locus.chrom}:${locus.start}-${locus.end}` }} </span
+        >{{ " " }} yields {{ segments?.length || 0 }} alignments.
+        <v-btn icon="mdi-download" size="x-small" @click="saveJsonBlob()"></v-btn>
+        <a id="downloadAnchor" style="display: none"></a>
+      </v-card-title>
       <v-tabs v-model="chromtabs">
         <v-tab v-for="chrom in chroms" :key="chrom" :value="chrom">{{ chrom }}</v-tab>
       </v-tabs>
       <v-tabs-window v-model="chromtabs">
         <v-tabs-window-item v-for="chrom in chroms" :key="chrom" :value="chrom">
           <ChromPlot
-          :chrom="chrom"
+            :chrom="chrom"
             :locus="locusString"
             :segments="dataByChrom.get(chrom) || []"
             :reads="[]"
@@ -88,5 +108,6 @@ const chromtabs = defineModel();
         </v-tabs-window-item>
       </v-tabs-window>
     </v-card>
+    <v-card v-else> </v-card>
   </div>
 </template>
