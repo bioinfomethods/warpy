@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /// <reference lib="es2021" />
 import { computed } from "vue";
-import * as d3 from "d3";
 import { Options } from "./options";
 import { BamFile } from "@gmod/bam";
 import { BlobFile } from "generic-filehandle";
