@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ReadInfo, Segment, SegmentGroupInfo, slug } from "./segment";
+import { flipSegmentIfNecessary, ReadItem, Segment, SegmentGroupInfo, slug } from "./segment";
 import { Options } from "./options";
 import { computed, ComputedRef, onMounted, ref, watchEffect } from "vue";
 import * as d3 from "d3";
@@ -7,7 +7,7 @@ import * as d3 from "d3";
 const props = defineProps<{
   yScale: d3.ScaleLinear<number, number, never>;
   group: SegmentGroupInfo;
-  readInfo: Map<string, ReadInfo>;
+  reads: Map<string, ReadItem>;
   readMin: number;
   readMax: number;
   options: Options;
@@ -15,11 +15,22 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  selectedSegment: [seg: Segment]
+  selectedSegment: [seg: Segment];
 }>();
 
+const segments = computed<Segment[]>(() => {
+  return d3.map(props.group.segments, (seg) => {
+    const item = props.reads.get(seg.readid);
+    if (item) {
+      return flipSegmentIfNecessary(item, seg);
+    } else {
+      return seg;
+    }
+  });
+});
+
 const boundingBoxId = computed<string>(() => {
-  return `box-${props.group.winMin}-${props.group.winMax}-${props.options.height}`
+  return `box-${props.group.winMin}-${props.group.winMax}-${props.options.height}`;
 });
 
 const xScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() => {
@@ -27,30 +38,12 @@ const xScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() =
 });
 
 function y1(seg: Segment): number {
-  let y = 0;
-  if (seg.strand == "+") {
-    y = seg.offset;
-  } else {
-    y = seg.offset + seg.qlen;
-  }
-  const info = props.readInfo.get(seg.readid);
-  if (info && info.flip) {
-    y = info.length - y;
-  }
+  const y = seg.strand == "+" ? seg.offset : seg.offset + seg.qlen;
   return props.yScale(y);
 }
 
 function y2(seg: Segment): number {
-  let y = 0;
-  if (seg.strand == "+") {
-    y = seg.offset + seg.qlen;
-  } else {
-    y = seg.offset;
-  }
-  const info = props.readInfo.get(seg.readid);
-  if (info && info.flip) {
-    y = info.length - y;
-  }
+  const y = seg.strand == "+" ? seg.offset + seg.qlen : seg.offset;
   return props.yScale(y);
 }
 
@@ -66,22 +59,20 @@ function findColour(seg: Segment) {
   return props.colours.get(seg.readid) || "black";
 }
 
-function startMark(seg: Segment) {
-  const g = props.readInfo.get(seg.readid);
-  if (g && seg.offset == g.begin) {
+function startMark(seg: Segment): string {
+  const item = props.reads.get(seg.readid);
+  if (item && item.start == seg.id) {
     return "url(#dotClosed)";
-  } else {
-    return "";
   }
+  return "";
 }
 
 function endMark(seg: Segment): string {
-  const g = props.readInfo.get(seg.readid);
-  if (g && seg.offset + seg.qlen == g.length) {
+  const item = props.reads.get(seg.readid);
+  if (item && item.end == seg.id) {
     return "url(#dotOpen)";
-  } else {
-    return "";
   }
+  return "";
 }
 
 function dashes(_seg: Segment): string {
@@ -94,21 +85,26 @@ onMounted(() => {
   watchEffect(() => {
     d3.select(lineSegments.value)
       .selectAll("line")
-      .data(props.group.segments, (seg) => slug(seg as Segment))
-      .enter()
-      .append("line")
-      .attr("x1", (d) => x1(d))
-      .attr("x2", (d) => x2(d))
-      .attr("y1", (d) => y1(d))
-      .attr("y2", (d) => y2(d))
-      .attr("stroke", (d) => findColour(d))
-      .attr("stroke-width", 2)
-      .attr("marker-start", (d) => startMark(d))
-      .attr("marker-end", (d) => endMark(d))
-      .style("stroke-dasharray", (d) => dashes(d))
-      .on("click", function (_e, seg) {
-        emit('selectedSegment', seg);
-      });
+      .data(segments.value, (seg) => slug(seg as Segment))
+      .join(
+        (enter) =>
+          enter
+            .append("line")
+            .attr("x1", (d) => x1(d))
+            .attr("x2", (d) => x2(d))
+            .attr("y1", (d) => y1(d))
+            .attr("y2", (d) => y2(d))
+            .attr("stroke", (d) => findColour(d))
+            .attr("stroke-width", 2)
+            .attr("marker-start", (d) => startMark(d))
+            .attr("marker-end", (d) => endMark(d))
+            .style("stroke-dasharray", (d) => dashes(d))
+            .on("click", function (_e, seg) {
+              emit("selectedSegment", seg);
+            }),
+        (update) => update,
+        (exit) => exit.remove()
+      );
   });
 });
 </script>
@@ -116,7 +112,7 @@ onMounted(() => {
 <template>
   <g>
     <clipPath :id="boundingBoxId">
-    <rect :x="group.winMin" :y="0" :width="group.winMax - group.winMin" :height="options.height"></rect>
+      <rect :x="group.winMin" :y="0" :width="group.winMax - group.winMin" :height="options.height"></rect>
     </clipPath>
     <g ref="lineSegments" :clip-path="'url(#' + boundingBoxId + ')'"></g>
   </g>

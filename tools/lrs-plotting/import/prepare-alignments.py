@@ -104,8 +104,10 @@ def compress(cig):
     else:
         return [(match, 'M'), (-delta, 'D')]
 
-def split_cigar(cig, d):
+def split_cigar(cig, d, strand):
     parts = [(int(n), o) for (n,o) in re.findall("([0-9]+)([MIDSH])", cig)]
+    if strand == "-":
+        parts = parts[::-1]
 
     (_, readLength) = lengths(parts)
 
@@ -297,7 +299,7 @@ def mainFromLoci(args):
                 (nm, segs) = item
                 for seg in sorted(segs):
                     (chrom, pos, strand, cig, qual) = seg
-                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None):
+                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None, strand):
                         items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
                 if len(items) > BIG:
                     break
@@ -355,7 +357,7 @@ def mainShallow(args):
                 (nm, segs) = item
                 for seg in sorted(segs):
                     (chrom, pos, strand, cig, qual) = seg
-                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None):
+                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, None, strand):
                         items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
                 if len(items) > BIG:
                     break
@@ -417,7 +419,7 @@ def mainDeep(args):
                 (nm, segs) = item
                 for seg in sorted(segs):
                     (chrom, pos, strand, cig, qual) = seg
-                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, splitThreshold):
+                    for (p, off, subCig, rlen, qlen, r) in split_cigar(cig, splitThreshold, strand):
                         items.add((nm, chrom, pos + p, strand, qual, off, rlen, qlen))
                 if len(items) > BIG:
                     break

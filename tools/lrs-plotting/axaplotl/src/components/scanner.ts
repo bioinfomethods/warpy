@@ -1,17 +1,10 @@
 import { BamFile } from "@gmod/bam";
-import { Segment } from "./segment";
+import { Locus, RawSegment } from "./segment";
 
 function lengths(parts: [string, number][]): [number, number] {
   let p = 0;
   let q = 0;
   for (const [o, n] of parts) {
-    if (o === "M") {
-      continue;
-    }
-    if (o === "I") {
-      q += n;
-      continue;
-    }
     switch (o) {
       case "M": {
         p += n;
@@ -70,10 +63,13 @@ function compress(parts: [string, number][]): [string, number][] {
   }
 }
 
-function splitCigar(cig: string): [number, number, string, number, number, number][] {
+function splitCigar(cig: string, strand: string): [number, number, string, number, number][] {
   const parts: [string, number][] = Array.from(cig.matchAll(/(\d+)(\D)/g)).map((m) => {
     return [m[2].toUpperCase(), Number.parseInt(m[1])];
   });
+  if (strand == "-") {
+    parts.reverse();
+  }
   const leftClip: [string, number][] = [];
   if ((parts.length > 0 && parts[0][0] === "S") || parts[0][0] === "H") {
     const item = parts.shift();
@@ -81,7 +77,6 @@ function splitCigar(cig: string): [number, number, string, number, number, numbe
       leftClip.push(item);
     }
   }
-  const readLength = lengths(parts)[1];
 
   if (parts[parts.length - 1][0] === "S" || parts[parts.length - 1][0] === "H") {
     parts.pop();
@@ -98,58 +93,66 @@ function splitCigar(cig: string): [number, number, string, number, number, numbe
         .join(""),
       p0,
       q0,
-      readLength - (q + q0),
     ],
   ];
 }
 
-export async function scanSegments(bam: BamFile, loci: [string, number, number][]): Promise<Segment[]> {
+export async function scanSegments(bam: BamFile, loci: Locus[]): Promise<RawSegment[]> {
   await bam.getHeader();
   const opts = {};
   const resItems: Set<[string, string, number, string, number, number, number, number]> = new Set();
   for (const locus of loci) {
-    const chrom = locus[0];
-    const start = locus[1] - 1;
-    const end = locus[2];
-    for (const rec of await bam.getRecordsForRange(chrom, start, end, opts)) {
-      if (rec.isSegmentUnmapped()) {
-        continue;
-      }
-      if (rec.isSecondary()) {
-        continue;
-      }
-      const qname = rec.name();
-      const pos = (rec.get("start") as number) + 1;
-      const items: Set<[string, number, string, string, number]> = new Set();
-      if (true) {
-        const strand = rec.isReverseComplemented() ? "-" : "+";
-        const cig = rec.cigar() as string;
-        const qual = parseInt(rec.qual() || "0");
-        //console.log(`${qname} ${chrom} ${pos} ${strand} ${cig} ${qual}`);
-        items.add([chrom, pos, strand, cig, qual]);
-      }
-      const wholeSA = rec.get("SA");
-      if (wholeSA == undefined) {
-        continue;
-      }
-      for (const sa of wholeSA.split(";")) {
-        if (sa === "") {
+    const chrom = locus.chrom;
+    const start = locus.start - 1;
+    const end = locus.end;
+    let recCount: number = 0;
+    for await (const recs of bam.streamRecordsForRange(chrom, start, end, opts)) {
+      for (const rec of recs) {
+        recCount += 1;
+        if (recCount > 200) {
+          console.log(`too many BAM records for locus ${locus.chrom}:${locus.start}-${locus.end}`);
+          break;
+        }
+        if (rec.isSegmentUnmapped()) {
           continue;
         }
-        const parts = sa.split(",");
-        const chrom = parts[0];
-        const pos = parseInt(parts[1]);
-        const strand = parts[2];
-        const cig = parts[3];
-        const qual = parseInt(parts[4]);
-        //console.log(`${qname} ${chrom} ${pos} ${strand} ${cig} ${qual}`);
-        items.add([chrom, pos, strand, cig, qual]);
-      }
-      for (const seg of items) {
-        const [chrom, pos, strand, cig, qual] = seg;
-        for (const [p, off, _subSig, rlen, qlen, _r] of splitCigar(cig)) {
-          resItems.add([qname, chrom, pos + p, strand, qual, off, rlen, qlen]);
+        if (rec.isSecondary()) {
+          continue;
         }
+        const qname = rec.name();
+        const pos = (rec.get("start") as number) + 1;
+        const items: Set<[string, number, string, string, number]> = new Set();
+        if (true) {
+          const strand = rec.isReverseComplemented() ? "-" : "+";
+          const cig = rec.cigar() as string;
+          const qual = parseInt(rec.qual() || "0");
+          items.add([chrom, pos, strand, cig, qual]);
+        }
+        const wholeSA = rec.get("SA");
+        if (wholeSA == undefined) {
+          continue;
+        }
+        for (const sa of wholeSA.split(";")) {
+          if (sa === "") {
+            continue;
+          }
+          const parts = sa.split(",");
+          const chrom = parts[0];
+          const pos = parseInt(parts[1]);
+          const strand = parts[2];
+          const cig = parts[3];
+          const qual = parseInt(parts[4]);
+          items.add([chrom, pos, strand, cig, qual]);
+        }
+        for (const seg of items) {
+          const [chrom, pos, strand, cig, qual] = seg;
+          for (const [p, off, _subSig, rlen, qlen] of splitCigar(cig, strand)) {
+            resItems.add([qname, chrom, pos + p, strand, qual, off, rlen, qlen]);
+          }
+        }
+      }
+      if (recCount > 200) {
+        break;
       }
     }
   }
