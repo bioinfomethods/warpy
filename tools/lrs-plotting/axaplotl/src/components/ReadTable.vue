@@ -32,6 +32,8 @@ function formatLocus(locus: Locus): string {
       v-model="selected"
       item-value="readid"
       item-key="readid"
+      fixed-header
+      height="3in"
     >
       <template v-slot:item.colour="{ item }">
         <v-icon icon="mdi-circle" :color="item.colour"></v-icon>

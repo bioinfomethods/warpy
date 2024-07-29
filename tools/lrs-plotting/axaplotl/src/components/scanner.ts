@@ -70,7 +70,6 @@ function splitCigar(cig: string, strand: string): [number, number, string, numbe
   if (strand == "-") {
     parts.reverse();
   }
-  console.log(parts);
   const leftClip: [string, number][] = [];
   if ((parts.length > 0 && parts[0][0] === "S") || parts[0][0] === "H") {
     const item = parts.shift();
