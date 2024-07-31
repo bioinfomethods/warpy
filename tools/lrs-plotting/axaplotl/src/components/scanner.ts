@@ -1,6 +1,31 @@
 import { BamFile } from "@gmod/bam";
 import { Locus, RawSegment } from "./segment";
 
+/**
+ * Options for scanning aligned segments.
+ */
+export type ScannerOptions = {
+  /**
+   * Maximum number of reads to examine. Setting this to 0 allows
+   * the scanner to scan an unlimited number, which could lead to
+   * performance issues. (Default: 200)
+   */
+  maxReads: number;
+
+  /**
+   * Usually, it is undesirable to include reads that have only a
+   * single aligned segment, so we drop them. Setting this to true
+   * will cause reads with a single segment to be included.
+   * (Default: false)
+   */
+  includeSingletons: boolean;
+};
+
+export const defaultScannerOptions: ScannerOptions = {
+  maxReads: 200,
+  includeSingletons: false,
+};
+
 function lengths(parts: [string, number][]): [number, number] {
   let p = 0;
   let q = 0;
@@ -97,19 +122,21 @@ function splitCigar(cig: string, strand: string): [number, number, string, numbe
   ];
 }
 
-export async function scanSegments(bam: BamFile, loci: Locus[]): Promise<RawSegment[]> {
+export async function scanSegments(bam: BamFile, loci: Locus[], opts: Partial<ScannerOptions> = {}): Promise<RawSegment[]> {
+  const options: ScannerOptions = { ...defaultScannerOptions, ...opts };
+
   await bam.getHeader();
-  const opts = {};
+  const bamOpts = {};
   const resItems: Set<[string, string, number, string, number, number, number, number]> = new Set();
   for (const locus of loci) {
     const chrom = locus.chrom;
     const start = locus.start - 1;
     const end = locus.end;
     let recCount: number = 0;
-    for await (const recs of bam.streamRecordsForRange(chrom, start, end, opts)) {
+    for await (const recs of bam.streamRecordsForRange(chrom, start, end, bamOpts)) {
       for (const rec of recs) {
         recCount += 1;
-        if (recCount > 200) {
+        if (options.maxReads > 0 && recCount > options.maxReads) {
           console.log(`too many BAM records for locus ${locus.chrom}:${locus.start}-${locus.end}`);
           break;
         }
@@ -151,7 +178,7 @@ export async function scanSegments(bam: BamFile, loci: Locus[]): Promise<RawSegm
           }
         }
       }
-      if (recCount > 200) {
+      if (options.maxReads > 0 && recCount > options.maxReads) {
         break;
       }
     }

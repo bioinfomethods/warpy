@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { flipSegmentIfNecessary, ReadItem, Segment, SegmentGroupInfo } from "./segment";
+import { ReadItem, Segment, SegmentGroupInfo } from "./segment";
 import { Options } from "./options";
 import { computed, ComputedRef, onMounted, ref, watchEffect } from "vue";
 import * as d3 from "d3";
@@ -15,15 +15,7 @@ const props = defineProps<{
 }>();
 
 const segments = computed<Segment[]>(() => {
-  const res = d3.map(props.group.segments, (seg) => {
-    const item = props.reads.get(seg.readid);
-    if (item) {
-      return flipSegmentIfNecessary(item, seg);
-    } else {
-      return seg;
-    }
-  });
-  return res;
+  return props.group.segments;
 });
 
 const boundingBoxId = computed<string>(() => {
@@ -43,12 +35,22 @@ const axisTransform = computed(() => {
 });
 
 function y1(seg: Segment): number {
-  const y = seg.offset + (seg.strand == "+" ? 0 : seg.qlen);
+  const info = props.reads.get(seg.readid);
+  const flipped = info?.flipped == true;
+  let y = seg.strand == "+" ? seg.offset : seg.offset + seg.qlen;
+  if (flipped) {
+    y = info.length - y;
+  }
   return props.yScale(y);
 }
 
 function y2(seg: Segment): number {
-  const y = seg.offset + (seg.strand == "+" ? seg.qlen : 0);
+  const info = props.reads.get(seg.readid);
+  const flipped = info?.flipped == true;
+  let y = seg.strand == "+" ? seg.offset + seg.qlen : seg.offset;
+  if (flipped) {
+    y = info.length - y;
+  }
   return props.yScale(y);
 }
 
