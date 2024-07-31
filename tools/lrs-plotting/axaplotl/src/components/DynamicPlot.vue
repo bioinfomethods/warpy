@@ -204,7 +204,7 @@ onMounted(() => {
           multiple
           :rules="[validFileSelection]"
         ></v-file-input>
-        <v-text-field v-model="rawLocusString" :rules="[validLocus]" label="Breakpoint locus" hint="Locus to scan" clearable></v-text-field>
+        <v-text-field v-model="rawLocusString" :rules="[validLocus]" label="Breakpoint locus" hint="Locus to scan (if large, select breakpoints)" clearable></v-text-field>
         <v-btn :disabled="!locus || !bam" @click="doScan()">Scan Alignments</v-btn>
         <span :style="{ visibility: scanningNow ? 'visible' : 'hidden', 'margin-left': '1rem' }">
           <v-progress-circular indeterminate></v-progress-circular>
