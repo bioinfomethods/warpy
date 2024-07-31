@@ -167,7 +167,18 @@ jasmine_merge = {
                     iris_args=
                         min_ins_length=$jasmine_sv.iris.min_ins_length,--rerunracon,--keep_long_variants
 
-            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | bgzip -c - > $output.vcf.gz
+            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
+            awk 'BEGIN {FS=OFS="\\t"}
+                /^#/ { print; next } 
+                /^chr/ {
+                    if (!match(\$4, /^<.+>\$/)) {
+                        gsub(/[^ACGTN]/, "N", \$4);
+                    }
+                    if (!match(\$5, /^<.+>\$/)) {
+                        gsub(/[^ACGTN]/, "N", \$5);
+                    }
+                    print;
+                }' | bgzip -c - > $output.vcf.gz
 
             tabix -p vcf $output.vcf.gz
         """
