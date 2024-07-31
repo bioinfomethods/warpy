@@ -3,7 +3,7 @@ import { Locus, parseLocus, ReadInfo, ReadItem, Segment, SegmentGroupInfo, valid
 import { Options } from "./options";
 import { UnionFind } from "./unionfind";
 import { computeSha1, humanize } from "./utils";
-import { computed, ComputedRef, onMounted, Ref, ref, watchEffect } from "vue";
+import { computed, ComputedRef, onMounted, ref, watchEffect } from "vue";
 import { computedAsync } from "@vueuse/core";
 import ChromSegmentPlotBackground from "./ChromSegmentPlotBackground.vue";
 import ChromSegmentPlotForeground from "./ChromSegmentPlotForeground.vue";
@@ -17,6 +17,13 @@ const props = defineProps<{
   reads: ReadItem[];
   options: Options;
   colours: Map<string, string>;
+}>();
+
+const clickedSegment = defineModel<string | undefined>("clickedSegment");
+
+const emit = defineEmits<{
+  mute: [];
+  solo: [];
 }>();
 
 const scaleAutoSwitch = ref<boolean>(true);
@@ -200,14 +207,13 @@ function getReadInfo(readid: string): ReadInfo {
   }
 }
 
-const readIndex = computed<Map<string,ReadItem>>(() => {
-  const res: Map<string,ReadItem> = new Map();
+const readIndex = computed<Map<string, ReadItem>>(() => {
+  const res: Map<string, ReadItem> = new Map();
   props.reads.forEach((item) => {
     res.set(item.readid, item);
   });
   return res;
 });
-
 
 const segmentGroups = computed(() => {
   const uf = new UnionFind();
@@ -318,10 +324,8 @@ const viewBox = computed(() => {
   return `0 0 ${w} ${h}`;
 });
 
-const clickedSegment: Ref<string> = ref("");
-
 async function copyToClipboard() {
-  await navigator.clipboard.writeText(clickedSegment.value);
+  await navigator.clipboard.writeText(clickedSegment.value || "");
 }
 
 onMounted(() => {
@@ -359,7 +363,9 @@ onMounted(() => {
     .attr("stroke", "grey")
     .style("fill", "none");
 
-  d3.select(yAxis.value).attr("transform", `translate(${props.options.marginLeft},0)`).call(d3.axisLeft(yScale.value) as any);
+  d3.select(yAxis.value)
+    .attr("transform", `translate(${props.options.marginLeft},0)`)
+    .call(d3.axisLeft(yScale.value) as any);
 
   d3.select(yAxisTitle.value)
     .attr("transform", `translate(12, ${props.options.height / 2})`)
@@ -451,7 +457,7 @@ async function snap() {
       </g>
       <g v-else>
         <ChromSegmentPlotBackground
-        :key="locusText"
+          :key="locusText"
           :y-scale="yScale"
           :group="everythingSegmentGroup"
           :reads="readIndex"
@@ -461,7 +467,7 @@ async function snap() {
           :colours="colours"
         ></ChromSegmentPlotBackground>
         <ChromSegmentPlotForeground
-        :key="locusText"
+          :key="locusText"
           :y-scale="yScale"
           :group="everythingSegmentGroup"
           :reads="readIndex"
@@ -478,8 +484,20 @@ async function snap() {
       </g>
     </svg>
     <h3>
+       <v-icon icon="mdi-circle" v-if="clickedSegment" :color="colours.get(clickedSegment)"></v-icon>
       {{ clickedSegment }}
-      <v-btn size="x-small" variant="plain" icon="mdi-clipboard-text" v-if="clickedSegment" @click="copyToClipboard"></v-btn>
+      <v-btn size="small" variant="plain" icon v-if="clickedSegment" @click="emit('mute')"
+        ><v-icon>mdi-alpha-m-box</v-icon
+        ><v-tooltip activator="parent" location="top" open-delay="500">Mute this read.</v-tooltip></v-btn
+      >
+      <v-btn size="small" variant="plain" icon v-if="clickedSegment" @click="emit('solo')"
+        ><v-icon>mdi-alpha-s-box</v-icon
+        ><v-tooltip activator="parent" location="top" open-delay="500">Solo this read.</v-tooltip></v-btn
+      >
+      <v-btn size="small" variant="plain" icon v-if="clickedSegment" @click="copyToClipboard"
+        ><v-icon>mdi-clipboard-text</v-icon
+        ><v-tooltip activator="parent" location="top" open-delay="500">Copy read id to clipboard.</v-tooltip></v-btn
+      >
     </h3>
   </div>
 </template>

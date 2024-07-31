@@ -1,14 +1,13 @@
 <script setup lang="ts">
 /// <reference lib="es2021" />
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watchEffect } from "vue";
 import { Options } from "./options";
 import { BamFile } from "@gmod/bam";
 import { BlobFile } from "generic-filehandle";
-import { Locus, makeSegment, parseLocus, RawSegment, Segment } from "./segment";
+import { Locus, makeSegment, parseLocus, Segment } from "./segment";
 import AlignmentPlot from "./AlignmentPlot.vue";
 import * as d3 from "d3";
 import { scanSegments } from "./scanner";
-import { computeSha1 } from "./utils";
 
 defineProps<{
   options: Partial<Options>;
@@ -63,6 +62,14 @@ const inputFiles = computed<[File, File] | undefined>(() => {
       return res;
     }
   }
+});
+
+const bamBaseName = computed<string>(() => {
+  if (inputFiles.value) {
+    const bamFile = inputFiles.value[0];
+    return bamFile.name.slice(0, -4);
+  }
+  return "unknown";
 });
 
 const bam = computed<BamFile | undefined>(() => {
@@ -122,42 +129,67 @@ const locusString = computed<string | undefined>(() => {
   }
 });
 
-const segments = ref<Segment[]>();
+type LocusAndSegments = {
+  locus: Locus;
+  loci: Locus[];
+  segments: Segment[];
+  json: string;
+};
+
+const locusAndSegmentsTable = ref<Map<string, LocusAndSegments>>(new Map());
 
 const scanningNow = ref<boolean>(false);
 
 async function doScan() {
-  if (bam.value && loci.value) {
+  if (bam.value && locus.value && loci.value) {
+    const label = `${locus.value.chrom}:${locus.value.start}-${locus.value.end}`;
     scanningNow.value = true;
     console.log("scanning...");
     const segs = await scanSegments(bam.value, loci.value);
-    segments.value = d3.map(segs, makeSegment);
+    const segments = d3.map(segs, makeSegment);
+    const stuff: { [locus: string]: Segment[] } = {};
+    stuff[label] = segments;
+    const json = JSON.stringify(stuff);
+    const item: LocusAndSegments = {
+      locus: locus.value,
+      loci: loci.value,
+      segments: segments,
+      json: json,
+    };
+    locusAndSegmentsTable.value.set(label, item);
     scanningNow.value = false;
   }
 }
 
-const jsonBlob = computed<string>(() => {
-  if (locus.value && segments.value) {
-    const loc = locus.value;
-    const data = segments.value;
-    const res: { [locus: string]: RawSegment[] | null } = {};
-    res[`${loc.chrom}:${loc.start}-${loc.end}`] = data;
-    return JSON.stringify(res);
-  } else {
-    return JSON.stringify(null);
+function removeLocus(locus: string) {
+  if (locusAndSegmentsTable.value) {
+    locusAndSegmentsTable.value.delete(locus);
   }
-});
+}
 
-async function saveJsonBlob() {
+async function saveJsonBlob(item: LocusAndSegments) {
   if (locusString.value) {
-    const sha = await computeSha1(locusString.value);
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonBlob.value);
+    const loc = `${item.locus.chrom}_${item.locus.start}_${item.locus.end}`;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(item.json);
     const dlAnchorElem = document.getElementById("downloadAnchor");
     dlAnchorElem?.setAttribute("href", dataStr);
-    dlAnchorElem?.setAttribute("download", `${sha.slice(-12)}.json`);
+    dlAnchorElem?.setAttribute("download", `${loc}.json`);
     dlAnchorElem?.click();
   }
 }
+
+const currentLocus = defineModel<string>("currentLocus");
+
+onMounted(() => {
+  watchEffect(() => {
+    if (locusAndSegmentsTable.value && locusAndSegmentsTable.value.size > 0) {
+      if (!currentLocus.value || !locusAndSegmentsTable.value.has(currentLocus.value)) {
+        const locus = Array.from(locusAndSegmentsTable.value.keys())[0];
+        currentLocus.value = locus;
+      }
+    }
+  });
+});
 </script>
 
 <template>
@@ -172,21 +204,27 @@ async function saveJsonBlob() {
           multiple
           :rules="[validFileSelection]"
         ></v-file-input>
-        <v-text-field v-model="rawLocusString" :rules="[validLocus]" label="Locus" hint="Locus to scan" clearable></v-text-field>
+        <v-text-field v-model="rawLocusString" :rules="[validLocus]" label="Breakpoint locus" hint="Locus to scan" clearable></v-text-field>
         <v-btn :disabled="!locus || !bam" @click="doScan()">Scan Alignments</v-btn>
         <span :style="{ visibility: scanningNow ? 'visible' : 'hidden', 'margin-left': '1rem' }">
           <v-progress-circular indeterminate></v-progress-circular>
         </span>
       </v-card-text>
-      <v-card-text v-if="locusString && segments">
-        Scanning the locus {{ locusString }} yields {{ segments?.length || 0 }} aligned segments.
-        <v-btn icon="mdi-download" size="x-small" @click="saveJsonBlob()"></v-btn>
-        <a id="downloadAnchor" style="display: none"></a>
+      <v-card-text>
+        <v-tabs v-model="currentLocus">
+          <v-tab v-for="[locus, item] in locusAndSegmentsTable" :key="bamBaseName + locus" :value="locus">
+            {{ locus }}
+            <v-btn icon="mdi-download" size="x-small" variant="plain" @click="saveJsonBlob(item)"></v-btn>
+            <v-btn icon="mdi-close" size="x-small" variant="plain" @click="removeLocus(locus)"></v-btn>
+          </v-tab>
+        </v-tabs>
+        <v-tabs-window v-model="currentLocus">
+          <v-tabs-window-item v-for="[locus, item] in locusAndSegmentsTable" :key="bamBaseName + locus" :value="locus">
+            <AlignmentPlot :locus="locus" :segments="item.segments" :options="options"></AlignmentPlot>
+          </v-tabs-window-item>
+        </v-tabs-window>
       </v-card-text>
     </v-card>
-
-    <v-sheet v-if="locusString && segments">
-      <AlignmentPlot :locus="locusString" :segments="segments" :options="options"></AlignmentPlot>
-    </v-sheet>
+    <a id="downloadAnchor" style="display: none"></a>
   </v-sheet>
 </template>

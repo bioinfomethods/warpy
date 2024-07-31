@@ -122,6 +122,20 @@ const selectedDataByChrom: ComputedRef<Map<string, Segment[]>> = computed(() => 
 });
 
 const chromtabs = defineModel("chromtabs");
+
+const clickedSegment = ref<string>("");
+
+function muteRead() {
+  if (clickedSegment.value) {
+    selectedReadIds.value = d3.filter(selectedReadIds.value, (readid) => readid != clickedSegment.value);
+  }
+}
+
+function soloRead() {
+  if (clickedSegment.value) {
+    selectedReadIds.value = [clickedSegment.value];
+  }
+}
 </script>
 
 <template>
@@ -138,6 +152,9 @@ const chromtabs = defineModel("chromtabs");
           :reads="readItems"
           :options="options"
           :colours="readColours"
+          v-model:clicked-segment="clickedSegment"
+          @mute="muteRead()"
+          @solo="soloRead()"
         ></ChromPlot>
       </v-tabs-window-item>
     </v-tabs-window>

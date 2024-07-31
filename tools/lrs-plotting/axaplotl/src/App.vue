@@ -11,15 +11,15 @@ const staticOrDynamic = defineModel<string>("staticOrDynamic");
 <template>
   <v-sheet>
     <v-tabs v-model="staticOrDynamic">
-      <v-tab value="static">Precomputed Alignment Summaries</v-tab>
       <v-tab value="dynamic">Alignment Summaries from BAM</v-tab>
+      <v-tab value="static">Precomputed Alignment Summaries</v-tab>
     </v-tabs>
     <v-tabs-window v-model="staticOrDynamic">
+      <v-tabs-window-item value="dynamic">
+          <DynamicPlot :options="options"></DynamicPlot>
+        </v-tabs-window-item>
       <v-tabs-window-item value="static">
         <StaticPlot :options="options"></StaticPlot>
-      </v-tabs-window-item>
-      <v-tabs-window-item value="dynamic">
-        <DynamicPlot :options="options"></DynamicPlot>
       </v-tabs-window-item>
     </v-tabs-window>
   </v-sheet>
