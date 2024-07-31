@@ -86,13 +86,3 @@ export function parseLocus(txt: string): Locus | null {
 
   return { chrom: chrom, start: start, end: end };
 }
-
-export function flipSegmentIfNecessary(item: ReadItem, seg: Segment): Segment {
-  if (item.flipped) {
-    const res = {...seg};
-    res.strand = (seg.strand == "+" ? "-" : "+");
-    //res.offset = item.length - (seg.offset + seg.qlen);
-    return res;
-  }
-  return seg;
-}

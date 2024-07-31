@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { flipSegmentIfNecessary, ReadItem, Segment, SegmentGroupInfo, slug } from "./segment";
+import { ReadItem, Segment, SegmentGroupInfo } from "./segment";
 import { Options } from "./options";
 import { computed, ComputedRef, onMounted, ref, watchEffect } from "vue";
 import * as d3 from "d3";
@@ -18,14 +18,15 @@ const emit = defineEmits<{
   selectedSegment: [seg: Segment];
 }>();
 
-const segments = computed<Segment[]>(() => {
+interface AugmentedSegment extends Segment {
+  key: string;
+}
+
+const segments = computed<AugmentedSegment[]>(() => {
   return d3.map(props.group.segments, (seg) => {
-    const item = props.reads.get(seg.readid);
-    if (item) {
-      return flipSegmentIfNecessary(item, seg);
-    } else {
-      return seg;
-    }
+    const info = props.reads.get(seg.readid);
+    const flipped = info?.flipped == true;
+    return { ...seg, key: seg.id + (flipped ? "!" : ".") };
   });
 });
 
@@ -38,12 +39,22 @@ const xScale: ComputedRef<d3.ScaleLinear<number, number, never>> = computed(() =
 });
 
 function y1(seg: Segment): number {
-  const y = seg.strand == "+" ? seg.offset : seg.offset + seg.qlen;
+  const info = props.reads.get(seg.readid);
+  const flipped = info?.flipped == true;
+  let y = seg.strand == "+" ? seg.offset : seg.offset + seg.qlen;
+  if (flipped) {
+    y = info.length - y;
+  }
   return props.yScale(y);
 }
 
 function y2(seg: Segment): number {
-  const y = seg.strand == "+" ? seg.offset + seg.qlen : seg.offset;
+  const info = props.reads.get(seg.readid);
+  const flipped = info?.flipped == true;
+  let y = seg.strand == "+" ? seg.offset + seg.qlen : seg.offset;
+  if (flipped) {
+    y = info.length - y;
+  }
   return props.yScale(y);
 }
 
@@ -85,7 +96,7 @@ onMounted(() => {
   watchEffect(() => {
     d3.select(lineSegments.value)
       .selectAll("line")
-      .data(segments.value, (seg) => slug(seg as Segment))
+      .data(segments.value, (seg) => (seg as AugmentedSegment).key)
       .join(
         (enter) =>
           enter
