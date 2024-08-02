@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ComputedRef, ref } from "vue";
+import { computed, ComputedRef, onMounted, ref } from "vue";
 
 import * as d3 from "d3";
 import { optionDefaults, Options } from "./options";
 import ChromPlot from "./ChromPlot.vue";
 import ReadTable from "./ReadTable.vue";
+import SegmentTable from "./SegmentTable.vue";
 import { Locus, ReadItem, Segment } from "./segment";
 
 const props = defineProps<{
@@ -105,6 +106,14 @@ function collectReadIds(segs: Segment[]): string[] {
 
 const selectedReadIds = ref<string[]>(collectReadIds(props.segments));
 
+const selectedSegments = computed<Segment[]>(() => {
+  const wantedReads: Set<string> = new Set();
+  selectedReadIds.value.forEach((readid) => {
+    wantedReads.add(readid);
+  });
+  return d3.filter(props.segments, (seg) => wantedReads.has(seg.readid));
+});
+
 const selectedDataByChrom: ComputedRef<Map<string, Segment[]>> = computed(() => {
   const wantedReads: Set<string> = new Set();
   selectedReadIds.value.forEach((readid) => {
@@ -136,6 +145,17 @@ function soloRead() {
     selectedReadIds.value = [clickedSegment.value];
   }
 }
+
+onMounted(() => {
+  const seen: Set<string> = new Set();
+  props.segments.forEach((seg) => {
+    if (seen.has(seg.id)) {
+      console.log(seg);
+    }
+    seen.add(seg.id);
+  });
+});
+
 </script>
 
 <template>
@@ -159,5 +179,6 @@ function soloRead() {
       </v-tabs-window-item>
     </v-tabs-window>
     <ReadTable v-model:selected="selectedReadIds" v-model:items="readItems"></ReadTable>
+    <SegmentTable :segments="selectedSegments"></SegmentTable>
   </v-sheet>
 </template>

@@ -146,7 +146,15 @@ async function doScan() {
     scanningNow.value = true;
     console.log("scanning...");
     const segs = await scanSegments(bam.value, loci.value);
-    const segments = d3.map(segs, makeSegment);
+    const seen: Set<string> = new Set();
+    const segments: Segment[] = [];
+    segs.forEach((raw) => {
+      const seg = makeSegment(raw);
+      if (!seen.has(seg.id)) {
+        seen.add(seg.id);
+        segments.push(seg);
+      }
+    });
     const stuff: { [locus: string]: Segment[] } = {};
     stuff[label] = segments;
     const json = JSON.stringify(stuff);
