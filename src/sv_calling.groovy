@@ -169,6 +169,7 @@ jasmine_merge = {
 
             $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
             awk 'BEGIN {FS=OFS="\\t"}
+                /^#CHROM/ { gsub(/\\t[0-9]+_/, "\\t", \$0); print; next }
                 /^#/ { print; next } 
                 /^chr/ {
                     if (!match(\$4, /^<.+>\$/)) {
