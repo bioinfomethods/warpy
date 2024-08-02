@@ -1,5 +1,5 @@
 import { BamFile } from "@gmod/bam";
-import { Locus, RawSegment } from "./segment";
+import { Locus, makeSegment, RawSegment } from "./segment";
 
 /**
  * Options for scanning aligned segments.
@@ -183,11 +183,18 @@ export async function scanSegments(bam: BamFile, loci: Locus[], opts: Partial<Sc
       }
     }
   }
-  const res = [];
+  const res: RawSegment[] = [];
+  const seen: Set<string> = new Set();
   for (const item of resItems) {
     const [qname, chrom, pos, strand, qual, off, rlen, qlen] = item;
     if (rlen > 0 && qlen > 0) {
-      res.push({ readid: qname, chrom: chrom, pos: pos, strand: strand, qual: qual, offset: off, rlen: rlen, qlen: qlen });
+      const raw: RawSegment = { readid: qname, chrom: chrom, pos: pos, strand: strand, qual: qual, offset: off, rlen: rlen, qlen: qlen };
+      const seg = makeSegment(raw);
+      if (seen.has(seg.id)) {
+        continue;
+      }
+      seen.add(seg.id);
+      res.push(raw);
     }
   }
   return res;
