@@ -263,7 +263,7 @@ ximmer_summarize = {
 
             export JAVA_OPTS="-Xmx${memory}g"
 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR:$XIMMER/src/main/groovy:$XIMMER/src/main/resources:$XIMMER/src/main/js $XIMMER/src/main/groovy/SummarizeCNVs.groovy  
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR:$tools.XIMMER/src/main/groovy:$tools.XIMMER/src/main/resources:$tools.XIMMER/src/main/js $tools.XIMMER/src/main/groovy/SummarizeCNVs.groovy  
                     -ddd $REF_BASE/decipher_population_cnvs.txt.gz
                     -dgv $REF_BASE/dgvMerged.txt.gz  
                     -refgene $REF_BASE/refGene.txt.gz  
@@ -333,7 +333,7 @@ post_to_cxp = {
     var POST_RESULTS : false,
         cnv_batch: new File('.').absoluteFile.parentFile.parentFile.name,
         CXP_PROJECT : 'R0001_residual_project',
-        XIMMER_GNGS_JAR : "$XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar",
+        XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar",
         STAGE_CNV_RESULTS_TARGET : null
     
     requires CXP_URL : 'URL of CXP server to POST to'
@@ -365,14 +365,14 @@ post_to_cxp = {
                     IMPORT_QC_ZIP=STAGE_CNV_RESULTS_TARGET.replaceAll('^.*:','') + "/" + file(input.qc.zip).name
                 }
 
-                var sampleSex = meta.get(sample).sex
+                var sampleSex : sex // meta.get(sample).sex
                  
                 exec """
                     $stageCommand
 
                     set -o pipefail
 
-                    $tools.GROOVY -cp $XIMMER_GNGS_JAR:$XIMMER/src/main/groovy:$XIMMER/src/main/resources:$XIMMER/src/main/js $XIMMER/src/main/groovy/PostToCXPWGS.groovy
+                    $tools.GROOVY -cp $XIMMER_GNGS_JAR:$tools.XIMMER/src/main/groovy:$tools.XIMMER/src/main/resources:$tools.XIMMER/src/main/js $tools.XIMMER/src/main/groovy/PostToCXPWGS.groovy
                         -project $CXP_PROJECT
                         -analysis $IMPORT_ANALYSIS_ZIP
                         -sex $sample:$sampleSex
@@ -380,7 +380,9 @@ post_to_cxp = {
                         -target $target_bed
                         -batch $cnv_batch
                         -bam $sample:$input.bam
-                        -qc $IMPORT_QC_ZIP 
+                        -qc $IMPORT_QC_ZIP  | tee $output.txt
+
+
                 """
             }
         }
