@@ -163,6 +163,7 @@ jasmine_merge = {
                 --dup_to_ins 
                 --normalize_type 
                 --require_first_sample 
+                --default_zero_genotype
                 --run_iris 
                     iris_args=
                         min_ins_length=$jasmine_sv.iris.min_ins_length,--rerunracon,--keep_long_variants
