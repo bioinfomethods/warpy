@@ -47,7 +47,12 @@ input_data_type = input_files.collectEntries { sam, files ->
     if(by_ext.size() > 1)
         throw new bpipe.PipelineError("Warpy can only accept a single file type per sample for analysis but $sam has extensions $ext as inputs")
 
-    [(sam):by_ext.bam ? 'bam' : 'x5']
+    if (by_ext.ubam) {
+        [(sam):'ubam']
+    }
+    else {
+        [(sam):by_ext.bam ? 'bam' : 'x5']
+    }
 }
 println("input_data_type: " + input_data_type)
 
@@ -128,9 +133,13 @@ init_family = {
     branch.family_branch = true
 }
 
+align_ubam = segment {
+    minimap2_align + merge_pass_calls
+}
+
 basecall_align_reads = segment {
     convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
-        dorado + minimap2_align + merge_pass_calls
+        dorado + align_ubam
 }
 
 forward_sample_bam = {
@@ -158,7 +167,9 @@ run(input_files*.value.flatten()) {
     // Phase 1: resolve or create BAM files
     make_mmi.when { ! new File(REF_MMI).exists() } +
         sample_channel * [
-            basecall_align_reads.when { input_data_type[sample] == 'x5' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats 
+            basecall_align_reads.when { input_data_type[sample] == 'x5' } + 
+            forward_sample_bam.when { input_data_type[sample] == 'bam' } + 
+            align_ubam.when { input_data_type[sample] == 'ubam' } + read_stats 
         ] +
 
     // Phase 2: single sample variant calling
