@@ -584,6 +584,36 @@ aggregate_all_variants = {
     }
 }
 
+phase_variants = {
+    output.dir = "variants/${sample}"
+
+    transform("wf_snp.vcf.gz") to("wf_snp.phased.vcf.gz") {
+        def tmp_vcf = "${input.vcf.gz.prefix.prefix}.tmp.vcf"
+
+        exec """
+            set -uo pipefail
+
+            echo "Using longphase for final variant phasing"
+
+            bgzip -@ $threads -dc $input.vcf.gz > $tmp_vcf  
+
+            $tools.LONGPHASE phase 
+                --ont 
+                --indels
+                -o ${output.prefix.prefix}
+                -s $tmp_vcf
+                -b $input.bam 
+                -r $REF
+                -t $threads
+
+            rm -f $tmp_vcf
+
+            bgzip -c $output.prefix > $output
+
+            tabix -f -p vcf $output
+         """
+    }
+}
 
 normalize_vcf = {
 
@@ -603,6 +633,22 @@ normalize_vcf = {
     }
 }
 
+haplotag_bam = {
+    output.dir = "align"
+
+    transform('bam') to('haplotagged.bam') {
+        exec """
+            $tools.LONGPHASE haplotag 
+            -r $REF
+            -s $input.norm.vcf.gz
+            -b $input.bam
+            -t $threads 
+            -o $output.dir/${file(output.bam.prefix).name}
+
+            samtools index $output.bam
+        """
+    }
+}
 
 combine_family_vcfs = {
     

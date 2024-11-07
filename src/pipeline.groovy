@@ -184,7 +184,7 @@ run(input_files*.value.flatten()) {
                     ] 
                     + aggregate_full_align_variants
              ] +
-                contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants + normalize_vcf,
+                contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants + phase_variants + normalize_vcf + haplotag_bam,
          ],
 
          sv_calling: sample_channel * [ mosdepth + filterBam + [
