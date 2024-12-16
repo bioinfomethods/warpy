@@ -39,3 +39,5 @@ guppy	dna_r9.4.1_e8.1_hac_prom	-	Clair3 has not been trained on this basecalling
 guppy	dna_r9.5_450bps	-	Clair3 has not been trained on this basecalling configuration
 guppy	rna_r9.4.1_70bps_hac	-	RNA data is not suitable for this workflow
 guppy	rna_r9.4.1_70bps_hac_prom	-	RNA data is not suitable for this workflow
+hifi_sequel2	-	hifi_sequel2	-
+hifi_revio	-	hifi_revio	-

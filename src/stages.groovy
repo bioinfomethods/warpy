@@ -261,6 +261,45 @@ read_stats = {
     }
 }
 
+call_short_variants = {
+    output.dir = new File('variants').absolutePath
+
+    produce("${sample}.wf_snp.g.vcf.gz") {
+        def gvcfFlags = ""
+
+        if(calling.enable_gvcf) {
+            gvcfFlags = "--gvcf" 
+        }
+
+        exec """
+            set -uo pipefail
+
+            /opt/bin/run_clair3.sh --bam_fn=$input.bam
+                                   --bed_fn=$opts.targets
+                                   --ref_fn=$REF
+                                   --threads=$threads
+                                   --platform=$lrs_platform
+                                   --model_path=$calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}
+                                   --output=$output.dir
+                                   --sample_name=$sample
+                                   --snp_min_af=$calling.snp_min_af
+                                   --indel_min_af=$calling.indel_min_af
+                                   --min_mq=$calling.min_mq
+                                   --min_coverage=$calling.min_cov
+                                   --var_pct_phasing=$calling.phasing_pct
+                                   --chunk_size=$calling.chunk_size
+                                   $gvcfFlags
+
+            mv ${output.dir}/merge_output.gvcf.gz $output.g.vcf.gz
+
+            tabix -p vcf $output.g.vcf.gz
+
+            rm ${output.dir}/merge_output.gvcf.gz.tbi
+        """
+    }
+}
+
+/*
 pileup_variants = {
     
     output.dir="clair3_output/pileup"
@@ -583,14 +622,14 @@ aggregate_all_variants = {
         """
     }
 }
+*/
 
-
-normalize_vcf = {
+normalize_gvcf = {
 
     doc "split VCF lines so that each line contains one and only one variant, and left-normalize all VCF lines"
 
     output.dir="variants"
-    transform('vcf.gz') to ("norm.vcf.gz") {
+    transform('g.vcf.gz') to ("norm.g.vcf.gz") {
         exec """
             set -o pipefail
 
@@ -603,6 +642,19 @@ normalize_vcf = {
     }
 }
 
+gvcf_to_vcf = {
+    output.dir = "variants"
+
+    transform('g.vcf.gz') to ('vcf.gz') {
+        exec """
+            set -o pipefail
+
+            bcftools view -i 'TYPE="snp" || TYPE="indel"' $input.g.vcf.gz | bgzip -c > $output.vcf.gz
+
+            tabix -p vcf $output.vcf.gz
+        """
+    }
+}
 
 combine_family_vcfs = {
     

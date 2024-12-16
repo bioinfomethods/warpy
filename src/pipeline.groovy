@@ -69,13 +69,27 @@ VERSION="1.0"
 // Convert basecaller model to Clair3 model
 model_map_file = "$BASE/data/clair3_models.tsv"
 model_map = new graxxia.TSV(model_map_file).toListMap()
-clair3_model = model_map.find { it.basecaller == 'dorado' && it.basecall_model_name == params.drd_model }
-assert clair3_model != null : 'No dorado model for base caller model ' + params.drd_model + ' could be found in ' + model_map_file
+
+if (assay == 'GENERIC-LRSWGS-PACBIO') {
+    if (input_data_type == 'x5') {
+        throw new bpipe.PipelineError("Sample data type mismatched with the assay (Pac Bio) provided")
+    }
+    else {
+        lrs_platform = "hifi"
+        clair3_model = model_map.find { it.basecaller == 'hifi_revio' }
+        assert clair3_model != null : 'No Hifi Revio model could be found in ' + model_map_file
+    }
+}
+else {
+    lrs_platform = "ont"
+    clair3_model = model_map.find { it.basecaller == 'dorado' && it.basecall_model_name == params.drd_model }
+    assert clair3_model != null : 'No dorado model for base caller model ' + params.drd_model + ' could be found in ' + model_map_file
+}
 
 if(clair3_model.clair3_model_name == '-') 
     throw new bpipe.PipelineError("No suitable clair3 model could be found: $clair3_model.clair3_nomodel_reason")
 
-targets = bed(opts.targets)
+//targets = bed(opts.targets)
 
 str_chrs = new File(calling.repeats_bed).readLines()*.tokenize()*.getAt(0).unique()
 
@@ -89,7 +103,7 @@ dorado_group_size = 10
 
 // println "The dorado input groups are: \n\n" + dorado_input_groups
 
-calling_chunk_size = 10000000
+// calling_chunk_size = 10000000
 
 targets_by_chr = new gngs.BED(opts.targets).load().groupBy { it.chr }.collect { chr, List<Region> regions ->
    new gngs.Region(chr, regions*.from.min(), regions*.to.max() )
@@ -175,6 +189,8 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
+            call_short_variants + normalize_gvcf + gvcf_to_vcf
+            /*
              partitions   * [ pileup_variants ] + aggregate_pileup_variants +
              [ 
                     get_qual_filter,
@@ -185,6 +201,7 @@ run(input_files*.value.flatten()) {
                     + aggregate_full_align_variants
              ] +
                 contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants + normalize_vcf,
+            */
          ],
 
          sv_calling: sample_channel * [ mosdepth + filterBam + [
