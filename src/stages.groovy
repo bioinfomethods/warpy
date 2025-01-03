@@ -262,7 +262,7 @@ read_stats = {
 }
 
 call_short_variants = {
-    output.dir = new File('variants').absolutePath
+    output.dir = new File("variants/${sample}").absolutePath
 
     produce("${sample}.wf_snp.g.vcf.gz") {
         def gvcfFlags = ""
