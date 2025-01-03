@@ -290,11 +290,16 @@ call_short_variants = {
                                    --chunk_size=$calling.chunk_size
                                    $gvcfFlags
 
-            mv ${output.dir}/merge_output.gvcf.gz $output.g.vcf.gz
+            $BASE/scripts/fix_clair3_gvcf.py
+                -i ${output.dir}/merge_output.gvcf.gz
+                -o $output.g.vcf.gz.prefix
+                -r $REF
+
+            bgzip -c $output.g.vcf.gz.prefix > $output.g.vcf.gz
 
             tabix -p vcf $output.g.vcf.gz
 
-            rm ${output.dir}/merge_output.gvcf.gz.tbi
+            rm ${output.dir}/merge_output.gvcf.gz* $output.g.vcf.gz.prefix
         """
     }
 }
