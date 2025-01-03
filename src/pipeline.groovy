@@ -70,7 +70,7 @@ VERSION="1.0"
 model_map_file = "$BASE/data/clair3_models.tsv"
 model_map = new graxxia.TSV(model_map_file).toListMap()
 
-if (assay == 'GENERIC-LRSWGS-PACBIO') {
+if (binding.hasVariable('assay') && assay == 'GENERIC-LRSWGS-PACBIO') {
     if (input_data_type == 'x5') {
         throw new bpipe.PipelineError("Sample data type mismatched with the assay (Pac Bio) provided")
     }
