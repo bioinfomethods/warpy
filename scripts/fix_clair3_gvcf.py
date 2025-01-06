@@ -8,7 +8,7 @@ import sys
 import vcf
 
 def create_log_file_path(input_gvcf, output_gvcf):
-    return str(output_gvcf.parent.joinpath(input_gvcf.with_suffix(f'{input_gvcf.suffix}.ref_base_fix.log')))
+    return str(output_gvcf.with_name(f'{input_gvcf.name}.ref_base_fix.log'))
 
 def append_missing_non_ref_allele_freq(vcf_record, sample_id):
     sample_var_call = vcf_record.genotype(sample_id)
