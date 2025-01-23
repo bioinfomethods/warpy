@@ -261,6 +261,50 @@ read_stats = {
     }
 }
 
+call_short_variants = {
+    output.dir = new File("variants/${sample}").absolutePath
+
+    produce("${sample}.wf_snp.g.vcf.gz") {
+        def gvcfFlags = ""
+
+        if(calling.enable_gvcf) {
+            gvcfFlags = "--gvcf" 
+        }
+
+        exec """
+            set -uo pipefail
+
+            /opt/bin/run_clair3.sh --bam_fn=$input.bam
+                                   --bed_fn=$opts.targets
+                                   --ref_fn=$REF
+                                   --threads=$threads
+                                   --platform=$lrs_platform
+                                   --model_path=$calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}
+                                   --output=$output.dir
+                                   --sample_name=$sample
+                                   --snp_min_af=$calling.snp_min_af
+                                   --indel_min_af=$calling.indel_min_af
+                                   --min_mq=$calling.min_mq
+                                   --min_coverage=$calling.min_cov
+                                   --var_pct_phasing=$calling.phasing_pct
+                                   --chunk_size=$calling.chunk_size
+                                   $gvcfFlags
+
+            $BASE/scripts/fix_clair3_gvcf.py
+                -i ${output.dir}/merge_output.gvcf.gz
+                -o $output.g.vcf.gz.prefix
+                -r $REF
+
+            bgzip -c $output.g.vcf.gz.prefix > $output.g.vcf.gz
+
+            tabix -p vcf $output.g.vcf.gz
+
+            rm ${output.dir}/merge_output.gvcf.gz* $output.g.vcf.gz.prefix
+        """
+    }
+}
+
+/*
 pileup_variants = {
     
     output.dir="clair3_output/pileup"
@@ -583,11 +627,44 @@ aggregate_all_variants = {
         """
     }
 }
+*/
 
-phase_variants = {
+normalize_gvcf = {
+
+    doc "split VCF lines so that each line contains one and only one variant, and left-normalize all VCF lines"
+
+    output.dir="variants/${sample}"
+    transform('g.vcf.gz') to ("norm.g.vcf.gz") {
+        exec """
+            set -o pipefail
+
+            gunzip -c $input.gz | bcftools norm -m -both - | bcftools norm -f $REF - | bgzip -c > $output
+
+            tabix -p vcf $output
+        """
+        
+        sample_vcfs.get(sample, []).add(output.toString())
+    }
+}
+
+gvcf_to_vcf = {
     output.dir = "variants/${sample}"
 
-    transform("wf_snp.vcf.gz") to("wf_snp.phased.vcf.gz") {
+    transform('g.vcf.gz') to ('vcf.gz') {
+        exec """
+            set -o pipefail
+
+            bcftools view -i 'TYPE="snp" || TYPE="indel"' $input.g.vcf.gz | bgzip -c > $output.vcf.gz
+
+            tabix -p vcf $output.vcf.gz
+        """
+    }
+}
+
+phase_variants = {
+    output.dir = "variants"
+
+    transform("wf_snp.norm.vcf.gz") to("wf_snp.norm.phased.vcf.gz") {
         def tmp_vcf = "${input.vcf.gz.prefix.prefix}.tmp.vcf"
 
         exec """
@@ -599,7 +676,6 @@ phase_variants = {
 
             $tools.LONGPHASE phase 
                 --ont 
-                --indels
                 -o ${output.prefix.prefix}
                 -s $tmp_vcf
                 -b $input.bam 
@@ -615,24 +691,6 @@ phase_variants = {
     }
 }
 
-normalize_vcf = {
-
-    doc "split VCF lines so that each line contains one and only one variant, and left-normalize all VCF lines"
-
-    output.dir="variants"
-    transform('vcf.gz') to ("norm.vcf.gz") {
-        exec """
-            set -o pipefail
-
-            gunzip -c $input.gz | bcftools norm -m -both - | bcftools norm -f $REF - | bgzip -c > $output
-
-            tabix -p vcf $output
-        """
-        
-        sample_vcfs.get(sample, []).add(output.toString())
-    }
-}
-
 haplotag_bam = {
     output.dir = "align"
 
@@ -640,7 +698,7 @@ haplotag_bam = {
         exec """
             $tools.LONGPHASE haplotag 
             -r $REF
-            -s $input.norm.vcf.gz
+            -s $input.norm.phased.vcf.gz
             -b $input.bam
             -t $threads 
             -o $output.dir/${file(output.bam.prefix).name}
