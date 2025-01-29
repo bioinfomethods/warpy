@@ -642,13 +642,11 @@ normalize_gvcf = {
 
             tabix -p vcf $output
         """
-        
-        sample_vcfs.get(sample, []).add(output.toString())
     }
 }
 
 gvcf_to_vcf = {
-    output.dir = "variants/${sample}"
+    output.dir = "variants"
 
     transform('g.vcf.gz') to ('vcf.gz') {
         exec """
@@ -662,10 +660,12 @@ gvcf_to_vcf = {
 }
 
 phase_variants = {
-    output.dir = "variants"
+    output.dir = "variants/${sample}"
 
-    transform("wf_snp.norm.vcf.gz") to("wf_snp.norm.phased.vcf.gz") {
-        def tmp_vcf = "${input.vcf.gz.prefix.prefix}.tmp.vcf"
+    transform("norm.g.vcf.gz") to("norm.phased.g.vcf.gz") {
+        def tmp_vcf = "${input.vcf.gz.prefix.prefix.prefix}.tmp.g.vcf"
+
+        def platform_opt = (lrs_platform == 'hifi') ? '--pb' : '--ont'
 
         exec """
             set -uo pipefail
@@ -674,8 +674,7 @@ phase_variants = {
 
             bgzip -@ $threads -dc $input.vcf.gz > $tmp_vcf  
 
-            $tools.LONGPHASE phase 
-                --ont 
+            $tools.LONGPHASE phase $platform_opt
                 -o ${output.prefix.prefix}
                 -s $tmp_vcf
                 -b $input.bam 
@@ -687,7 +686,11 @@ phase_variants = {
             bgzip -c $output.prefix > $output
 
             tabix -f -p vcf $output
+
+            rm -f $output.prefix
          """
+
+         sample_vcfs.get(sample, []).add(output.toString())
     }
 }
 
@@ -734,7 +737,9 @@ combine_family_vcfs = {
 
             export JAVA=$tools.JAVA
 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR $BASE/src/MergeFamilyVCF.groovy $inputs.vcf.gz | bgzip -c >  $output.vcf.gz
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR $BASE/src/MergeFamilyVCF.groovy $inputs.g.vcf.gz | 
+                bcftools view -i 'TYPE="snp" || TYPE="indel"' - | 
+                bgzip -c > $output.vcf.gz
 
             tabix -p vcf $output.vcf.gz
         """

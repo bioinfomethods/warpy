@@ -189,7 +189,7 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
-            call_short_variants + normalize_gvcf + gvcf_to_vcf + phase_variants + haplotag_bam
+            call_short_variants + normalize_gvcf + phase_variants + gvcf_to_vcf + haplotag_bam
             /*
              partitions   * [ pileup_variants ] + aggregate_pileup_variants +
              [ 
