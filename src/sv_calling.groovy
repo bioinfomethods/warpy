@@ -34,6 +34,7 @@ sniffles2 = {
             sniffles
                 --threads $threads
                 --sample-id ${sample}
+                --reference $REF
                 --output-rnames
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.bam
