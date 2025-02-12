@@ -215,7 +215,9 @@ filter_sv_calls = {
 
             bash $output.sh > $output.vcf.gz.prefix
 
-            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.vcf.gz.prefix | bgziptabix $output.vcf.gz
+            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.vcf.gz.prefix | bgzip -c > $output.vcf.gz
+
+            tabix -p vcf $output.vcf.gz
         """
         
         sample_sniffles_vcfs.get(sample, []).add(output.wf_sv.vcf.gz.prefix.toString())
@@ -234,7 +236,9 @@ sort_sv_vcf = {
     
     produce("${sample}.wf_sv.vcf.gz") {
         exec """
-            vcfsort $input.vcf | bgziptabix $output.vcf.gz
+            vcfsort $input.vcf | bgzip -c > $output.vcf.gz
+
+            tabix -p vcf $output.vcf.gz
         """
     }
 }
