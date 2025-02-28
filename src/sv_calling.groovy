@@ -42,7 +42,8 @@ sniffles2 = {
                 --tandem-repeats ${calling.tr_bed} $sniffles_args
                 --vcf ${output.vcf.prefix}.tmp.vcf
 
-            sed '/.:0:0:0:NULL/d' ${output.vcf.prefix}.tmp.vcf > $output.vcf
+            sed '/.:0:0:0:NULL/d' ${output.vcf.prefix}.tmp.vcf | 
+            awk -f $BASE/scripts/fix_allele_seq.awk > $output.vcf
         """
     }
 }
@@ -98,7 +99,8 @@ sniffles2_joint_call = {
                 --input $inputs
                 --vcf $output.prefix
 
-            bgzip -c $output.prefix > $output.vcf.gz
+            $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
+            awk -f $BASE/scripts/fix_allele_seq.awk | bgzip -c - > $output.vcf.gz
 
             bcftools index -t $output.vcf.gz
         """
@@ -170,18 +172,7 @@ jasmine_merge = {
                         min_ins_length=$jasmine_sv.iris.min_ins_length,--rerunracon,--keep_long_variants
 
             $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
-            awk 'BEGIN {FS=OFS="\\t"}
-                /^#CHROM/ { gsub(/\\t[0-9]+_/, "\\t", \$0); print; next }
-                /^#/ { print; next } 
-                /^chr/ {
-                    if (!match(\$4, /^<.+>\$/)) {
-                        gsub(/[^ACGTN]/, "N", \$4);
-                    }
-                    if (!match(\$5, /^<.+>\$/)) {
-                        gsub(/[^ACGTN]/, "N", \$5);
-                    }
-                    print;
-                }' | bgzip -c - > $output.vcf.gz
+            awk -f $BASE/scripts/fix_allele_seq.awk | bgzip -c - > $output.vcf.gz
 
             tabix -p vcf $output.vcf.gz
         """
