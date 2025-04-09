@@ -8,7 +8,7 @@ filterBam = {
         exec """
             samtools view -@ $threads 
                 $input.bam
-                -F 2308 
+                -F 260 
                 -o $output.bam
                 --write-index 
                 --reference $REF
