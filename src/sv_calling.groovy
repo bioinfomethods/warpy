@@ -179,6 +179,55 @@ jasmine_merge = {
     }
 }
 
+//Assume ONT data here
+cutesv = {
+    var cutesv_args : ''
+
+    def max_cluster_bias_ins = (lrs_platform == 'hifi') ? cutesv_params.hifi_max_cluster_bias_ins : cutesv_params.ont_max_cluster_bias_ins
+    def max_cluster_bias_del = (lrs_platform == 'hifi') ? cutesv_params.hifi_max_cluster_bias_del : cutesv_params.ont_max_cluster_bias_del
+    def diff_ratio_merging_ins = (lrs_platform == 'hifi') ? cutesv_params.hifi_diff_ratio_merging_ins : cutesv_params.ont_diff_ratio_merging_ins
+    def diff_ratio_merging_del = (lrs_platform == 'hifi') ? cutesv_params.hifi_diff_ratio_merging_del : cutesv_params.ont_diff_ratio_merging_del
+    
+    branch.dir = "sv/$sample"
+
+    def cutesv_tmp_dir = new File(TMPDIR, UUID.randomUUID().toString()).path
+
+    produce("${sample}.cutesv.raw.vcf") {
+        exec """
+            set -o pipefail
+
+            mkdir -p $cutesv_tmp_dir
+
+            cuteSV
+                --threads $threads
+                --sample ${sample}
+                --report_readid
+                --max_cluster_bias_INS $max_cluster_bias_ins
+	            --diff_ratio_merging_INS $diff_ratio_merging_ins
+	            --max_cluster_bias_DEL $max_cluster_bias_del
+	            --diff_ratio_merging_DEL $diff_ratio_merging_del
+                --min_support $cutesv_params.min_support
+                --genotype
+                $input.bam
+                $REF
+                ${branch.dir}/${sample}.cutesv.tmp.vcf
+                $cutesv_tmp_dir
+
+            bcftools view ${branch.dir}/${sample}.cutesv.tmp.vcf |
+                awk -f $BASE/scripts/count_sv_support.awk |
+                awk -f $BASE/scripts/fix_allele_seq.awk > ${branch.dir}/${sample}.cutesv.tmp2.vcf
+
+            echo '##INFO=<ID=SUPPORT,Number=1,Type=Integer,Description="Number of reads supporting the structural variation">' > ${branch.dir}/vcf_header.txt
+
+            bcftools annotate -h ${branch.dir}/vcf_header.txt -o $output.vcf ${branch.dir}/${sample}.cutesv.tmp2.vcf
+
+            rm ${branch.dir}/${sample}.cutesv.tmp*.vcf ${branch.dir}/vcf_header.txt
+
+            rm -rf $cutesv_tmp_dir
+        """
+    }
+}
+
 filter_sv_calls = {
 //    input:
 //        file vcf
@@ -188,9 +237,18 @@ filter_sv_calls = {
 //        path "*.filtered.vcf", emit: vcf
 //    script:
 //        def sv_types_joined = params.sv_types.split(',').join(" ")
-    
+    var sv_tool: ''
 
-    from('*.regions.bed.gz') produce("${sample}.wf_sv.vcf.gz", "${sample}_filter.sh") {
+    def out_files = []
+    
+    if (sv_tool == '') {
+        out_files = ["${sample}.wf_sv.vcf.gz", "${sample}_filter.sh"]
+    }
+    else {
+        out_files = ["${sample}.${sv_tool}.vcf.gz", "${sample}_${sv_tool}_filter.sh"]
+    }
+
+    from('*.regions.bed.gz') produce(out_files) {
         exec """
             set -o pipefail
 
