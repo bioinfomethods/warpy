@@ -108,6 +108,8 @@ sniffles2_joint_call = {
 }
 
 init_jasmine = {
+    var sv_tool: ''
+
     def family_samples = meta*.value.grep { println(it); it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
 
@@ -119,15 +121,24 @@ init_jasmine = {
       .unique()
       .join('\\n')
 
-    def vcfsListings = sample_sniffles_vcfs
-      .findAll { k, v -> k in family_sample_identifiers }
+    def vcfsListings = sample_sv_vcfs
+      .findAll { k, v -> k.split("@")[0] == sv_tool && k.split("@")[1] in family_sample_identifiers }
       .sort()
       .collect { k, v -> v }
       .flatten()
       .unique()
       .join('\\n')
 
-    produce("${family}.bam.listings.txt", "${family}.vcf.listings.txt") {
+    def out_files = []
+
+    if (sv_tool == '') {
+        out_files = ["${family}.bam.listings.txt", "${family}.vcf.listings.txt"]
+    }
+    else {
+        out_files = ["${family}.${sv_tool}.bam.listings.txt", "${family}.${sv_tool}.vcf.listings.txt"]
+    }
+
+    produce(out_files) {
         output.dir = "sv/$family"
 
         groovy """
@@ -239,12 +250,15 @@ filter_sv_calls = {
 //        def sv_types_joined = params.sv_types.split(',').join(" ")
     var sv_tool: ''
 
+    def in_file = ''
     def out_files = []
     
     if (sv_tool == '') {
+        in_file = "${sample}.sniffles.vcf"
         out_files = ["${sample}.wf_sv.vcf.gz", "${sample}_filter.sh"]
     }
     else {
+        in_file = "${sample}.${sv_tool}.raw.vcf"
         out_files = ["${sample}.${sv_tool}.vcf.gz", "${sample}_${sv_tool}_filter.sh"]
     }
 
@@ -269,7 +283,7 @@ filter_sv_calls = {
             tabix -p vcf $output.vcf.gz
         """
         
-        sample_sniffles_vcfs.get(sample, []).add(output.wf_sv.vcf.gz.prefix.toString())
+        sample_sv_vcfs.get("${sv_tool}@${sample}", []).add(output.vcf.gz.prefix.toString())
     }
 }
 

@@ -165,7 +165,7 @@ forward_sample_bam = {
 sample_vcfs = Collections.synchronizedMap([:])
 sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
-sample_sniffles_vcfs = Collections.synchronizedMap([:])
+sample_sv_vcfs = Collections.synchronizedMap([:])
 
 annotate_sv = segment {
   symbolic_alt + sv_annotate + strvctvre_annotate
