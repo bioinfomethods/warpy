@@ -106,8 +106,15 @@ def main():
     filter_sv_types = f"( {(' || ').join(sv_type_filters)} )"
 
     # Get length filters
-    filter_min_len = f'ABS(SVLEN) >= {args.min_sv_length}'
-    filter_max_len = f'ABS(SVLEN) <= {args.max_sv_length}'
+    if args.min_sv_length > 0:
+        filter_min_len = f'ABS(SVLEN) >= {args.min_sv_length}'
+    else:
+        filter_min_len = None
+
+    if args.max_sv_length > 0:
+        filter_max_len = f'ABS(SVLEN) <= {args.max_sv_length}'
+    else:
+        filter_max_len = None
 
     # Get min read support filter
     # Todo: Check this
@@ -125,10 +132,15 @@ def main():
     # Build filter string
     filters = [
         filter_sv_types,
-        filter_min_len,
-        filter_max_len,
         filter_min_read_support
     ]
+
+    if filter_min_len is not None:
+        filters.append(filter_min_len)
+
+    if filter_max_len is not None:
+        filters.append(filter_max_len)
+
     filter_string = f"-i '{' && '.join(filters)}'"
 
     # Add target_bed filter (optional)
