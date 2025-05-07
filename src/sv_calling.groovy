@@ -107,9 +107,7 @@ sniffles2_joint_call = {
     }
 }
 
-init_jasmine = {
-    var sv_tool: ''
-
+init_jasmine_bams = {
     def family_samples = meta*.value.grep { println(it); it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
 
@@ -121,29 +119,37 @@ init_jasmine = {
       .unique()
       .join('\\n')
 
+    produce("${family}.bam.listings.txt") {
+        output.dir = "sv/$family"
+
+        groovy """
+            new File('$output.bam.listings.txt').text = '''$bamsListings'''
+        """
+    }
+}
+
+init_jasmine_vcfs = {
+    var sv_tool: 'sniffles'
+
+    def family_samples = meta*.value.grep { println(it); it.family_id == family }
+    def family_sample_identifiers = family_samples.collect { it.identifier }
+
+    println(sample_sv_vcfs)
+
     def vcfsListings = sample_sv_vcfs
-      .findAll { k, v -> k.split("@")[0] == sv_tool && k.split("@")[1] in family_sample_identifiers }
+      .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
       .sort()
       .collect { k, v -> v }
       .flatten()
       .unique()
       .join('\\n')
 
-    def out_files = []
+    def vcf_list = (sv_tool == 'sniffles'? "${family}.vcf.listings.txt":"${family}.${sv_tool}.vcf.listings.txt")
 
-    if (sv_tool == '') {
-        out_files = ["${family}.bam.listings.txt", "${family}.vcf.listings.txt"]
-    }
-    else {
-        out_files = ["${family}.${sv_tool}.bam.listings.txt", "${family}.${sv_tool}.vcf.listings.txt"]
-    }
+    output.dir = "sv/$family"
 
-    produce(out_files) {
-        output.dir = "sv/$family"
-
+    produce(vcf_list) {
         groovy """
-            new File('$output.bam.listings.txt').text = '''$bamsListings'''
-
             new File('$output.vcf.listings.txt').text = '''$vcfsListings'''
         """
     }
@@ -154,9 +160,13 @@ jasmine_merge = {
 
     requires family : 'family to process'
 
+    var sv_tool: 'sniffles'
+
+    def out_vcf = (sv_tool == 'sniffles'? "${family}.jasmine.family.sv.vcf.gz":"${family}.${sv_tool}.jasmine.family.sv.vcf.gz")
+
     output.dir = "sv/$family"
 
-    produce("${family}.jasmine.family.sv.vcf.gz") {
+    produce(out_vcf) {
         exec """
             set -o pipefail
 
@@ -248,12 +258,12 @@ filter_sv_calls = {
 //        path "*.filtered.vcf", emit: vcf
 //    script:
 //        def sv_types_joined = params.sv_types.split(',').join(" ")
-    var sv_tool: ''
+    var sv_tool: 'sniffles'
 
     def in_file = ''
     def out_files = []
     
-    if (sv_tool == '') {
+    if (sv_tool == 'sniffles') {
         in_file = "${sample}.sniffles.vcf"
         out_files = ["${sample}.wf_sv.vcf.gz", "${sample}_filter.sh"]
     }
@@ -262,7 +272,7 @@ filter_sv_calls = {
         out_files = ["${sample}.${sv_tool}.vcf.gz", "${sample}_${sv_tool}_filter.sh"]
     }
 
-    from('*.regions.bed.gz') produce(out_files) {
+    from(in_file) produce(out_files) {
         exec """
             set -o pipefail
 
@@ -283,7 +293,7 @@ filter_sv_calls = {
             tabix -p vcf $output.vcf.gz
         """
         
-        sample_sv_vcfs.get("${sv_tool}@${sample}", []).add(output.vcf.gz.prefix.toString())
+        sample_sv_vcfs.get("${sv_tool}#${sample}", []).add(output.vcf.gz.prefix.toString())
     }
 }
 
@@ -462,7 +472,7 @@ symbolic_alt = {
     
     var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
 
-    branch.sv_out = branch.family_branch ? branch.name : branch.sample
+    branch.sv_out = branch.family_branch ? branch.family_id : branch.sample
     
     output.dir = "sv/${branch.sv_out}"
 

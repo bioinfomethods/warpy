@@ -145,6 +145,7 @@ init = {
 
 init_family = {
     branch.family_branch = true
+    branch.family_id = family
 }
 
 align_ubam = segment {
@@ -206,7 +207,7 @@ run(input_files*.value.flatten()) {
 
          sv_calling: sample_channel * [ mosdepth + filterBam + [
             sniffles2_for_trios,
-            sniffles2 + filter_sv_calls + annotate_sv,
+            sniffles2 + filter_sv_calls.using(sv_tool:"sniffles") + annotate_sv,
             cutesv + filter_sv_calls.using(sv_tool:"cutesv") + annotate_sv
          ] ],
 
@@ -217,8 +218,13 @@ run(input_files*.value.flatten()) {
 
     // Phase 3: family merging
     family_channel * [ 
-        init_family + sniffles2_joint_call + annotate_sv,
-        init_family + init_jasmine + jasmine_merge + annotate_sv,
+        init_family + [ 
+            sniffles2_joint_call + annotate_sv,
+            init_jasmine_bams + [
+                init_jasmine_vcfs.using(sv_tool:"sniffles") + jasmine_merge.using(sv_tool:"sniffles") + annotate_sv,
+                init_jasmine_vcfs.using(sv_tool:"cutesv") + jasmine_merge.using(sv_tool:"cutesv") + annotate_sv
+            ]
+        ],
         combine_family_vcfs,
     ]
 }
