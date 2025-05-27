@@ -1,6 +1,7 @@
 import groovy.json.JsonBuilder
 
 call_str = {
+    var bam_ext: 'bam'
 
     branch.dir = "str/$sample/${chr}"
 
@@ -16,7 +17,7 @@ call_str = {
                     --sample ${sample}
                     --tsv $output.tsv
                     -v $output.vcf.gz.prefix
-                    --sex ${sampleSex.toLowerCase()} $input.bam $REF
+                    --sex ${sampleSex.toLowerCase()} ${input[bam_ext]} $REF
                     --min_support 1
                     --min_cluster_size 1
 

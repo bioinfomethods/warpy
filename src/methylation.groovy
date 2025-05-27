@@ -1,4 +1,6 @@
 bam2bedmethyl = {
+    var bam_ext = 'bam'
+
     def modkit_args = calling.modkit_args ?: '' 
     
     def regionFlag = region.isEmpty() ? "" : "--region $region"
@@ -13,7 +15,7 @@ bam2bedmethyl = {
                 --only-tabs
                 --log-filepath $output.txt
                 --threads $threads $regionFlag
-                --prefix $output.dir/${sample}.methyl ${modkit_args} $input.bam -
+                --prefix $output.dir/${sample}.methyl ${modkit_args} ${input[bam_ext]} -
                 | bgzip -c > $output.bed.gz
         """
     }

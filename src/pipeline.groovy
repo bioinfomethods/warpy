@@ -7,6 +7,7 @@ title 'Warpy - Oxford Nanopore Super High Accuracy Pipeline'
 options {
     samples 'Sample metadata file', args:1, type: File, required: true
     targets 'Target regions to call variants in', args:1, type: File, required: true
+    remap 'Remap the input BAM file', args:0, required: false
 }
 
 load 'stages.groovy'
@@ -56,6 +57,8 @@ input_data_type = input_files.collectEntries { sam, files ->
 }
 println("input_data_type: " + input_data_type)
 
+lrs_bam_ext = (input_data_type.values()[0] == 'bam' && opts.remap)? 'remapped.bam' : 'bam'
+
 // to make pipeline generic to work for either fast5 or blow5,
 // define virtual file extentions 'x5' that can map to either
 filetype x5 : ['pod5', 'blow5', 'fast5']
@@ -75,13 +78,13 @@ if (binding.hasVariable('assay') && assay == 'GENERIC-LRSWGS-PACBIO') {
         throw new bpipe.PipelineError("Sample data type mismatched with the assay (Pac Bio) provided")
     }
     else {
-        lrs_platform = "hifi"
+        def lrs_platform = "hifi"
         clair3_model = model_map.find { it.basecaller == 'hifi_revio' }
         assert clair3_model != null : 'No Hifi Revio model could be found in ' + model_map_file
     }
 }
 else {
-    lrs_platform = "ont"
+    def lrs_platform = "ont"
     clair3_model = model_map.find { it.basecaller == 'dorado' && it.basecall_model_name == params.drd_model }
     assert clair3_model != null : 'No dorado model for base caller model ' + params.drd_model + ' could be found in ' + model_map_file
 }
@@ -128,7 +131,7 @@ init = {
     // println "\nUsing REF_MMI: $REF_MMI"
     
     // Define mmi path based on reference file name
-    branch.REF_MMI=REF.replaceAll('\\.[^.]*$','.mmi')
+    REF_MMI = (lrs_platform = "hifi")? REF.replaceAll('\\.[^.]*$','.hifi.mmi') : REF.replaceAll('\\.[^.]*$','.mmi')
 
     produce('versions.txt') {
         exec """
@@ -149,12 +152,16 @@ init_family = {
 }
 
 align_ubam = segment {
-    minimap2_align + merge_pass_calls
+    minimap2_align.using(bam_ext: lrs_bam_ext) + merge_pass_calls.using(bam_ext: lrs_bam_ext)
 }
 
 basecall_align_reads = segment {
     convert_fast5_to_pod5.when { input.x5.endsWith('.fast5') } +
         dorado + align_ubam
+}
+
+remap_bam = segment {
+    unmap_bam + align_ubam
 }
 
 forward_sample_bam = {
@@ -183,14 +190,17 @@ run(input_files*.value.flatten()) {
     make_mmi.when { ! new File(REF_MMI).exists() } +
         sample_channel * [
             basecall_align_reads.when { input_data_type[sample] == 'x5' } + 
-            forward_sample_bam.when { input_data_type[sample] == 'bam' } + 
+            remap_bam.when { input_data_type[sample] == 'bam' && opts.remap } + 
+            forward_sample_bam.when { input_data_type[sample] == 'bam' && !opts.remap } + 
             align_ubam.when { input_data_type[sample] == 'ubam' } + read_stats 
         ] +
 
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
-            call_short_variants + normalize_gvcf + phase_variants + gvcf_to_vcf + haplotag_bam
+            call_short_variants.using(bam_ext: lrs_bam_ext) + normalize_gvcf + 
+            phase_variants.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf + 
+            haplotag_bam.using(bam_ext: lrs_bam_ext)
             /*
              partitions   * [ pileup_variants ] + aggregate_pileup_variants +
              [ 
@@ -205,15 +215,16 @@ run(input_files*.value.flatten()) {
             */
          ],
 
-         sv_calling: sample_channel * [ mosdepth + filterBam + [
-            sniffles2_for_trios,
-            sniffles2 + filter_sv_calls.using(sv_tool:"sniffles") + annotate_sv,
-            cutesv + filter_sv_calls.using(sv_tool:"cutesv") + annotate_sv
-         ] ],
+         sv_calling: sample_channel * [ 
+            mosdepth.using(bam_ext: lrs_bam_ext) + filterBam.using(bam_ext: lrs_bam_ext) + [
+                sniffles2_for_trios,
+                sniffles2 + filter_sv_calls.using(sv_tool:"sniffles") + annotate_sv,
+                cutesv + filter_sv_calls.using(sv_tool:"cutesv") + annotate_sv
+            ] ],
 
-         methylation: sample_channel * [ bam2bedmethyl ],
+         methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext) ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
     ] +
 
     // Phase 3: family merging

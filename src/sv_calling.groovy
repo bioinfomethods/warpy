@@ -1,20 +1,23 @@
 
 
 filterBam = {
+    var bam_ext: 'bam'
 
     output.dir = "align"
+    
+    def output_bam_ext = 'filtered.' + bam_ext
 
-    filter('filtered') {
+    transform(bam_ext) to(output_bam_ext) {
         exec """
             samtools view -@ $threads 
-                $input.bam
+                ${input[bam_ext]}
                 -F 260 
-                -o $output.bam
+                -o ${output[bam_ext]}
                 --write-index 
                 --reference $REF
         """
 
-        sample_bams.get(sample, []).add(output.toString())
+        sample_bams.get(sample, []).add(output[bam_ext].toString())
     }
 }
 

@@ -71,11 +71,13 @@ dorado = {
 make_mmi = {
     output.dir = new File(REF).parentFile.absolutePath
 
+    def map_platform = (lrs_platform == 'hifi') ? 'map-hifi' : 'map-ont'
+
     // nb: this could write into the reference directory
     // which is a little naughty
     produce(REF_MMI) {
         exec """
-            $tools.MINIMAP2 -t ${threads} -x map-ont -d $output ${REF}
+            $tools.MINIMAP2 -t ${threads} -x $map_platform -d $output ${REF}
         """
     }
 }
@@ -140,30 +142,63 @@ rename_and_merge_demux_output = {
     }
 }
 
+unmap_bam = {
+    requires sample : 'the sample id being processed'
+    
+    def SAMTOOLS = tools.SAMTOOLS
+
+    output.dir = 'align'
+
+    def tmp_bam = "$output.dir/${sample}.no_RG.bam"
+
+    transform('.bam') to('.unmap.ubam') {
+        exec """
+            set -eo pipefail
+
+            $SAMTOOLS view -@ $threads -h -b -x RG -o $tmp_bam $input.bam
+
+            gatk RevertSam -I $tmp_bam
+                -O $output.bam
+                --KEEP_FIRST_DUPLICATE
+                --SANITIZE
+                --OQ
+                --TMP_DIR $TMPDIR
+
+            rm $tmp_bam
+        """
+    }
+}
 
 minimap2_align = {
 
     doc "Align FASTQ stored in unaligned BAM file (ubam)"
 
     requires sample : 'the sample id being processed'
-    
+
+    var bam_ext : 'bam'
+
+    def map_platform = (lrs_platform == 'hifi') ? 'map-hifi' : 'map-ont'
+
     def SAMTOOLS = tools.SAMTOOLS
     
     output.dir = 'align'
 
-    produce("${sample}.pass.bam", "${sample}.fail.bam") {
+    def output_pass_bam = "${sample}.pass." + bam_ext
+    def output_fail_bam = "${sample}.fail." + bam_ext
+
+    produce(output_pass_bam, output_fail_bam) {
         exec """
             $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
-                | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
+                | $tools.MINIMAP2 -y -t $threads -ax $map_platform -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
                 | $SAMTOOLS sort -@ $threads
-                | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
-                | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $calling.qscore_filter' -o $output.pass.bam -
+                | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o ${output.fail[bam_ext]} - )
+                | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $calling.qscore_filter' -o ${output.pass[bam_ext]} -
 
-            $SAMTOOLS index $output.pass.bam
+            $SAMTOOLS index ${output.pass[bam_ext]}
         """
     }
 
-    forward(output.pass.bam)
+    forward(output.pass[bam_ext])
 }
 
 minimap2_align_fastq = {
@@ -202,12 +237,15 @@ merge_bams = {
 
 
 merge_pass_calls = {
+    var bam_ext : 'bam'
 
     output.dir = 'align'
 
-    produce(sample + '.merged.pass.bam') {
+    def output_pass_bam = "${sample}.merged.pass." + bam_ext
+
+    produce(output_pass_bam) {
         exec """
-            $tools.SAMTOOLS merge $output.bam $inputs.pass.bam 
+            $tools.SAMTOOLS merge ${output[bam_ext]} ${inputs.pass[bam_ext]}
             -f 
             -c 
             -p 
@@ -220,6 +258,7 @@ merge_pass_calls = {
 }
 
 mosdepth = {
+    var bam_ext : 'bam'
    
     output.dir = 'qc/mosdepth'
     
@@ -243,7 +282,7 @@ mosdepth = {
             --thresholds 1,10,20,30
             --no-per-base
             $output.dir/${sample}
-            $input.bam
+            ${input[bam_ext]}
         """
     }
 }
@@ -262,6 +301,8 @@ read_stats = {
 }
 
 call_short_variants = {
+    var bam_ext : 'bam'
+
     output.dir = new File("variants/${sample}").absolutePath
 
     produce("${sample}.wf_snp.g.vcf.gz") {
@@ -274,7 +315,7 @@ call_short_variants = {
         exec """
             set -uo pipefail
 
-            /opt/bin/run_clair3.sh --bam_fn=$input.bam
+            /opt/bin/run_clair3.sh --bam_fn=${input[bam_ext]}
                                    --bed_fn=$opts.targets
                                    --ref_fn=$REF
                                    --threads=$threads
@@ -660,6 +701,8 @@ gvcf_to_vcf = {
 }
 
 phase_variants = {
+    var bam_ext : 'bam'
+
     output.dir = "variants/${sample}"
 
     transform("norm.g.vcf.gz") to("norm.phased.g.vcf.gz") {
@@ -677,7 +720,7 @@ phase_variants = {
             $tools.LONGPHASE phase $platform_opt
                 -o ${output.prefix.prefix}
                 -s $tmp_vcf
-                -b $input.bam 
+                -b ${input[bam_ext]}
                 -r $REF
                 -t $threads
 
@@ -695,18 +738,22 @@ phase_variants = {
 }
 
 haplotag_bam = {
+    var bam_ext : 'bam'
+
     output.dir = "align"
 
-    transform('bam') to('haplotagged.bam') {
+    def output_bam_ext = 'haplotagged.' + bam_ext
+
+    transform(bam_ext) to(output_bam_ext) {
         exec """
             $tools.LONGPHASE haplotag 
             -r $REF
             -s $input.norm.phased.vcf.gz
-            -b $input.bam
+            -b ${input[bam_ext]}
             -t $threads 
-            -o $output.dir/${file(output.bam.prefix).name}
+            -o $output.dir/${file(output[bam_ext].prefix).name}
 
-            samtools index $output.bam
+            samtools index ${output[bam_ext]}
         """
     }
 }
