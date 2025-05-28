@@ -1,5 +1,5 @@
 bam2bedmethyl = {
-    var bam_ext = 'bam'
+    var bam_ext : 'bam'
 
     def modkit_args = calling.modkit_args ?: '' 
     
