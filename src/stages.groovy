@@ -178,6 +178,8 @@ minimap2_align = {
     var bam_ext : 'bam'
 
     def map_platform = (lrs_platform == 'hifi') ? 'map-hifi' : 'map-ont'
+    def rg_platform = (lrs_platform == 'hifi') ? 'PacBio' : 'ONT'
+    def rg_lib = (lrs_platform == 'hifi') ? 'LIB_HIFI' : 'LIB_ONT'
 
     def SAMTOOLS = tools.SAMTOOLS
     
@@ -189,7 +191,7 @@ minimap2_align = {
     produce(output_pass_bam, output_fail_bam) {
         exec """
             $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
-                | $tools.MINIMAP2 -y -t $threads -ax $map_platform -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
+                | $tools.MINIMAP2 -y -t $threads -ax $map_platform -R "@RG\\tID:${sample}\\tPL:${rg_platform}\\tPU:1\\tLB:${rg_lib}\\tSM:${sample}" $REF_MMI - 
                 | $SAMTOOLS sort -@ $threads
                 | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o ${output.fail[bam_ext]} - )
                 | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $calling.qscore_filter' -o ${output.pass[bam_ext]} -
