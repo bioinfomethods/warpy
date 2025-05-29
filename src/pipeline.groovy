@@ -222,7 +222,7 @@ run(input_files*.value.flatten()) {
                 cutesv + filter_sv_calls.using(sv_tool:"cutesv") + annotate_sv
             ] ],
 
-         methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext) ],
+         methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { lrs_platform == "ont" } ],
          
          str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
     ] +
