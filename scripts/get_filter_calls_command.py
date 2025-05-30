@@ -101,8 +101,12 @@ def main():
 
     # Get SV type filters
     sv_type_filters = []
+    is_BND_incl = False
     for svtype in args.sv_types:
-        sv_type_filters.append(f'SVTYPE = \"{svtype}\"')
+        if svtype == 'BND':
+            is_BND_incl = True
+        else:
+            sv_type_filters.append(f'SVTYPE = \"{svtype}\"')
     filter_sv_types = f"( {(' || ').join(sv_type_filters)} )"
 
     # Get length filters
@@ -141,11 +145,21 @@ def main():
     if filter_max_len is not None:
         filters.append(filter_max_len)
 
-    filter_string = f"-i '{' && '.join(filters)}'"
+    if is_BND_incl:
+        filter_string = f"-i '({' && '.join(filters)} )"
+        breakend_filters = [
+            "SVTYPE = \"BND\"",
+            filter_min_read_support
+        ]
+
+        breakend_filter_string = f" || ( {' && '.join(breakend_filters)} )'"
+    else:
+        filter_string = f"-i '{' && '.join(filters)}'"
+        breakend_filter_string = ""
 
     # Add target_bed filter (optional)
     if args.target_bedfile:
-        filter_string = f"-T {args.target_bedfile} " + filter_string
+        filter_string = f"-T {args.target_bedfile} " + filter_string + breakend_filter_string
 
     # Print command to stdout
     command = f"bcftools view {filter_string} {args.vcf}"
