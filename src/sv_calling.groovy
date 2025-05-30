@@ -137,8 +137,6 @@ init_jasmine_vcfs = {
     def family_samples = meta*.value.grep { println(it); it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
 
-    println(sample_sv_vcfs)
-
     def vcfsListings = sample_sv_vcfs
       .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
       .sort()
