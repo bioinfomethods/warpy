@@ -479,9 +479,28 @@ symbolic_alt = {
 
     transform(".vcf.gz") to(".vcf") {
         exec """
+            set -o pipefail
+
+            export JAVA=$tools.JAVA
+
+            tmp_vcf=\$(echo $output.vcf | sed 's/.vcf/.sym_alt.tmp.vcf/')
+
             gunzip -c $input.vcf.gz |
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } } } }'
-            > $output.vcf
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } \
+                else if (v.info.SVTYPE == "TRA") { v.alt = "<BND>"; v.info.SVTYPE = "BND"; v.info.END2 = v.info.END; v.info.remove("END") } } } }' \
+            > \$tmp_vcf
+
+            if [ $branch.family_branch ]; then
+                echo '##INFO=<ID=END2,Number=1,Type=Integer,Description="CHR2 END position for breakend SVs">' > ${output.dir}/vcf_header.txt
+
+                bcftools annotate -h ${output.dir}/vcf_header.txt -o $output.vcf \$tmp_vcf
+
+                rm ${output.dir}/vcf_header.txt \$tmp_vcf
+
+            else
+                mv \$tmp_vcf $output.vcf
+
+            fi
         """
     }
 }
