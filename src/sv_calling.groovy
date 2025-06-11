@@ -509,13 +509,15 @@ sv_annotate = {
 
     output.dir = "sv/${branch.sv_out}"
 
-    exec """
-        gatk SVAnnotate 
-            -V $input.vcf
-            --protein-coding-gtf $GENCODE_GTF
-            --lenient
-            -O $output.vcf.gz
-    """
+    transform(".vcf") to(".sv_annotate.vcf.gz") {
+        exec """
+            gatk SVAnnotate 
+                -V $input.vcf
+                --protein-coding-gtf $GENCODE_GTF
+                --lenient
+                -O $output.vcf.gz
+        """
+    }
 }
 
 strvctvre_annotate = {
