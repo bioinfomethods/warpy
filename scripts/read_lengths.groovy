@@ -12,6 +12,7 @@ import gngs.plot.bx.*
 cli = new CliBuilder(usage: 'read_lengths -bam <bam file>').tap {
     bam 'BAM file to calculate statistics from', args:1, required: true
     prefix 'Prefix for output files', args:1, required: true
+    bed 'Regions to calculate read lengths for', args:1, required: false
 }
 
 opts = cli.parse(args)
@@ -24,25 +25,27 @@ Utils.configureSimpleLogging()
 
 bam = new SAM(opts.bam)
 
-// Everything is computed from a subset of the genome to make it fast
-// Completely arbitrary set of regions to select read lengths from
-regions = [
-	new Region('chr1:20000000-24000000'),
-	new Region('chr2:40000000-44000000'),
-	new Region('chr9:40000000-44000000'),
-	new Region('chr15:70000000-74000000'),
-] as Regions
+if(opts.bed) {
+    regions = new BED(opts.bed).load()
+}
+else {
+    // Everything is computed from a subset of the genome to make it fast
+    // Pick completely arbitrary set of regions to select read lengths from
+    regions = [
+        new Region('chr1:20000000-24000000'),
+        new Region('chr2:40000000-44000000'),
+        new Region('chr9:40000000-44000000'),
+        new Region('chr15:70000000-74000000'),
+    ] as Regions
+}
 
 lens = new ArrayList(100000)
-
-read = null
 
 regions.each { region ->
 	bam.withIterator(region) { i ->
 		i.each { r ->
 			if(r.secondaryOrSupplementary)
 				return
-			read = r
 			lens.add(r.readLength)        
 		}
 	}
@@ -90,4 +93,5 @@ n50OutputFileName = opts.prefix + '.n50.txt'
 new File(n50OutputFileName).text = String.valueOf(n50) + '\n'
 log.info "Wrote $n50OutputFileName"
 
+log.info "Done"
 
