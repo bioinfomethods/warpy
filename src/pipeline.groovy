@@ -76,7 +76,10 @@ assert clair3_model != null : 'No dorado model for base caller model ' + params.
 if(clair3_model.clair3_model_name == '-') 
     throw new bpipe.PipelineError("No suitable clair3 model could be found: $clair3_model.clair3_nomodel_reason")
 
+TARGET_BED = opts.targets
 targets = bed(opts.targets)
+
+
 
 str_chrs = new File(calling.repeats_bed).readLines()*.tokenize()*.getAt(0).unique()
 
