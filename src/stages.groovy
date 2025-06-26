@@ -161,9 +161,9 @@ minimap2_align = {
 
     produce("${sample}.pass.bam", "${sample}.fail.bam") {
         exec """
-            $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
+             for ubam in $inputs.ubam ; do $SAMTOOLS bam2fq -@ $threads -T 1 \$ubam ; done
                 | $tools.MINIMAP2 -y -t $threads -ax map-ont -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI - 
-                | $SAMTOOLS sort -@ $threads
+                | $SAMTOOLS sort -m 4G -@ $threads
                 | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o $output.fail.bam - )
                 | $SAMTOOLS view -e '[qs] >= $calling.qscore_filter' -o $output.pass.bam -
 
