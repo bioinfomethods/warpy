@@ -709,6 +709,28 @@ dorado_demux = {
 	}
 }
 
+dorado_demux_noclassify = {
+
+    output.dir='dorado/demuxed'
+   
+    def files = sample_info.collect { s ->  
+        "${s.Sample_ID}.ubam"
+    } 
+    String  mvs = sample_info.collect { s -> 
+        "mv $output.dir/${branch.kit}_barcode${s.barcode_num}.bam $output.dir/${s.Sample_ID}.ubam;"
+    }.join("\n")
+
+    uses(dorados: 1) {
+    produce(files){
+        exec """
+            $tools.DORADO demux -t ${threads} --output-dir $output.dir --no-classify $input.ubam
+
+            $mvs   
+        """
+    }}
+}
+
+
 dorado_demux_classify = {
 
     output.dir = "dorado/demultiplexed"
@@ -717,9 +739,8 @@ dorado_demux_classify = {
 
     produce(files) {
         exec """
-            $tools.DORADO demux --output-dir $output.dir --no-classify $input.ubam
 
-            ${sample_info.collect { "mv -v twist_${it.barcodeno}.bam ${it.Sample_ID}.ubam;"}.join('\n')}
+            ${sample_info.collect { "mv -v ${output.dir}/twist_${it.barcodeno}.bam ${output.dir}/${it.Sample_ID}.ubam;"}.join('\n')}
         """
     }
 }
