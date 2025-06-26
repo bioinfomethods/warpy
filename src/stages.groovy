@@ -53,6 +53,12 @@ convert_fast5_to_pod5 = {
 dorado = {
 
     output.dir='dorado/' + branch.name
+    String kit = ""
+    var KIT : null
+    if(KIT){
+        kit = "--kit-name $KIT"
+        branch.kit = KIT
+    }
 
     uses(dorados: 1) {
         exec """
@@ -62,7 +68,9 @@ dorado = {
 
             ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "ln -sf $it $output.dir/$it.name;"}.join("\n") }
 
-            $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir --modified-bases 5mCG_5hmCG | 
+            ${inputs.x5.collect { file(it) }*.absoluteFile.collect { "[ -e ${it}.md5 ] && ln -sf ${it}.md5 $output.dir/${it.name}.md5;"}.join("\n") }		
+
+            $tools.DORADO basecaller $DRD_MODELS_PATH/$model.params.drd_model $output.dir $kit --modified-bases 5mCG_5hmCG | 
                 $tools.SAMTOOLS view -b -o $output.ubam -
         """
     }
