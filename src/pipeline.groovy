@@ -13,8 +13,14 @@ load 'stages.groovy'
 load 'sv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
+load 'qc_reports.groovy'
 
 requires samples_parser : "Please ensure a samples_parser is defined in bpipe.config as a parameter"
+
+var SEND_QC_TO_GITLAB : false
+
+
+println "SEND_QC_TO_GITLAB=$SEND_QC_TO_GITLAB" 
 
 meta = samples_parser(opts.samples)
 
@@ -183,7 +189,10 @@ run(input_files*.value.flatten()) {
          methylation: sample_channel * [ bam2bedmethyl ],
          
          str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
-    ] +
+    ] + 
+
+    // Generate QC and send
+    sample_channel * [  [ calc_coverage, read_lengths ] + send_report.when { SEND_QC_TO_GITLAB } ] +
 
     // Phase 3: family merging
     family_channel * [ 
