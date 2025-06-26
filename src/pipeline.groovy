@@ -182,7 +182,7 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
-             partitions   * [ pileup_variants ] + aggregate_pileup_variants +
+             partitions   * [ pileup_variants ] + aggregate_pileup_variants + longphase_modcall +
              [ 
                     get_qual_filter,
                     contigs * [

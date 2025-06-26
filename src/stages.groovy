@@ -361,10 +361,28 @@ select_het_snps = {
     }
 }
 
+longphase_modcall = {
+    output.dir = "longphase/"
 
+    transform('.bam') to ('.modcall.vcf'){
+        branch.modvcf = output
+        exec """
+	    $tools.LONGPHASE modcall
+	        -b $input.bam
+                --reference $REF
+                --out-prefix $output
+                --threads ${threads}
+
+            mv ${output}.vcf $output
+        """
+    }
+} 
 
 phase_contig = {
-
+    def mods=""
+    if(branch.modvcf){
+        mods="--mod-file " + branch.modvcf
+    }
     transform('.vcf.gz') to('.phased.vcf.gz') {
 
         def tmp_vcf = "${input.vcf.gz.prefix.prefix}.tmp.vcf"
@@ -376,7 +394,7 @@ phase_contig = {
                 bgzip -@ $threads -dc $input.vcf.gz > $tmp_vcf  
 
                 $tools.LONGPHASE phase 
-                    --ont 
+                    --ont $mods
                     -o ${output.prefix.prefix}
                     -s $tmp_vcf
                     -b $input.bam 
