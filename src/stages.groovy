@@ -168,17 +168,21 @@ minimap2_align = {
 
 minimap2_align_fastq = {
     
+    requires sample : 'the sample id being processed'
+
     def SAMTOOLS = tools.SAMTOOLS
     
     output.dir = 'align'
+    
+    produce("${sample}.pass.bam") {
+        exec """
+                $tools.MINIMAP2 -y -t $threads -ax map-ont  -R "@RG\\tID:${sample}\\tPL:ONT\\tPU:1\\tLB:ONT_LIB\\tSM:${sample}" $REF_MMI $inputs.fastq.gz
+                | $SAMTOOLS sort -m 4G -@ $threads > $output
 
-    exec """
-            $tools.MINIMAP2 -y -t $threads -ax map-ont $REF_MMI $input.fastq.gz
-            | $SAMTOOLS sort -@ $threads > $output.bam
+            $SAMTOOLS index $output
 
-        $SAMTOOLS index $output.bam
-
-    """
+        """
+    }
 }
 
 
