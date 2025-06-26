@@ -1,16 +1,54 @@
-options {
-    design 'name of the design containing target regions to calculate coverage for', args:1, required: true
+
+scriptFile = new File(bpipe.Config.config.script)
+
+if(scriptFile.name == 'qc_reports.groovy') {
+    options {
+        design 'name of the design containing target regions to calculate coverage for', args:1, required: true
+    }
+
+    DESIGN=opts.design
+    TARGET_BED="$BASE/designs/$DESIGN/${DESIGN}.bed"
 }
 
 calc_coverage = {
+
+    requires TARGET_BED : 'Target regions to calculate QC for'
+
+    var GAP_THRESHOLD : 6,
+        GAP_TARGET: null
+
+
+    def customGapTarget = TARGET_BED.absolutePath.replaceAll('.bed', '_GAP.bed')
+    if(file(customGapTarget).exists()) {
+        GAP_TARGET = customGapTarget
+    }
+    else {
+        GAP_TARGET = TARGET_BED
+    }
+
     output.dir = "qc"
-    
-   transform('.bam') to('.cov.stats.tsv', '.intervalsummary.tsv') {
-		exec """
-			 $tools.GNGS/bin/gngstool Cov  -L $BASE/designs/$opts.design/${opts.design}.bed 
-						   -samplesummary $output.stats.tsv 
-						   -intervalsummary $output.intervalsummary.tsv $input.bam
-		"""
+
+    transform('.bam') to('.cov.stats.tsv', '.intervalsummary.tsv', '.gaps.tsv.gz') {
+    exec """
+         $tools.GNGS/bin/gngstool Cov  -L $TARGET_BED
+                           -samplesummary $output.stats.tsv 
+                           -intervalsummary $output.intervalsummary.tsv
+                           -gaps $output.gaps.tsv.gz
+                           -gaptarget $GAP_TARGET
+                           -gt $GAP_THRESHOLD
+                           -refgene $REF_BASE/refGene.txt.gz
+                           $input.bam
+        """
+    }
+}
+
+samtools_stats = {
+    output.dir = "qc"
+
+    transform('.bam') to('.samtools.stats.tsv') {
+        exec """
+        $tools.SAMTOOLS stats --threads $threads $input.bam > $output.stats.tsv
+        """
     }
 }
 
@@ -57,9 +95,12 @@ send_report = {
     ) to channel: 'qc_report_to_gitlab', file: input.lengthsgb.png
 }
 
-run {
-    '%.bam' * [ 
-		calc_coverage,
-		read_lengths
-	 ] + send_report
+if(scriptFile.name == 'qc_reports.groovy') {
+    run {
+        '%.bam' * [ 
+            calc_coverage,
+            read_lengths,
+            samtools_stats
+         ] + send_report
+    }
 }
