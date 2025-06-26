@@ -34,7 +34,7 @@ input_files = meta.collectEntries { sample, sampleMeta ->
 
    def sampleInputs = sampleMeta.inputs.collect { i ->
        if(new File(i).directory) {
-           new File(i).listFiles().grep { f -> ext(f) in ['pod5', 'blow5','fast5'] }*.path
+           new File(i).listFiles().grep { f -> ext(f) in ['pod5', 'blow5', 'fast5', 'ubam'] || f.name.endsWith("fastq.gz") }*.path
        }
        else
            return i
@@ -52,8 +52,17 @@ input_data_type = input_files.collectEntries { sam, files ->
     def by_ext = files.groupBy { ext(new File(it)) }
     if(by_ext.size() > 1)
         throw new bpipe.PipelineError("Warpy can only accept a single file type per sample for analysis but $sam has extensions $ext as inputs")
-
-    [(sam):by_ext.bam ? 'bam' : 'x5']
+    def fext = 'x5'
+    if ( by_ext.get("bam") ){
+        fext = 'bam'
+    // we can only have fastq.gz here, because we didnt look for anything else above
+    } else if (by_ext.get("gz") ){
+        fext = 'fastq.gz'
+    } else if ( by_ext.get("ubam") ){
+        fext = 'ubam'
+    }
+     
+    [(sam): fext ]
 }
 println("input_data_type: " + input_data_type)
 
@@ -167,7 +176,7 @@ run(input_files*.value.flatten()) {
     // Phase 1: resolve or create BAM files
     make_mmi.when { ! new File(REF_MMI).exists() } +
         sample_channel * [
-            basecall_align_reads.when { input_data_type[sample] == 'x5' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats 
+            basecall_align_reads.when { input_data_type[sample] == 'x5' } + minimap2_align.when { input_data_type[sample] == 'ubam' } + minimap2_align_fastq.when { input_data_type[sample] == 'fastq.gz' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats + alignment_stats.using(targets: opts.targets) 
         ] +
 
     // Phase 2: single sample variant calling
