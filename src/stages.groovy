@@ -516,28 +516,30 @@ evaluate_candidates = {
     output.dir = "variants/full_alignments"
     
     produce("${sample}.${bed_prefix}.full_alignment.vcf") {
-        exec """
-            set -uo pipefail
+        uses(clair3: 1) {
+            exec """
+                set -uo pipefail
 
-            echo "[INFO] 6/7 Call low-quality variants using full-alignment model"
+                echo "[INFO] 6/7 Call low-quality variants using full-alignment model"
 
-            python $tools.CLAIR3/clair3.py CallVariantsFromCffi
-                --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/full_alignment
-                --bam_fn $input.bam 
-                --call_fn $output.vcf
-                --sampleName ${sample}
-                --ref_fn $REF
-                --full_aln_regions $input.bed
-                --ctgName $chr
-                --add_indel_length
-                --gvcf ${calling.enable_gvcf?"True":"False"}
-                --minMQ $calling.min_mq
-                --minCoverage $calling.min_cov
-                --snp_min_af $calling.snp_min_af
-                --indel_min_af $calling.indel_min_af
-                --platform ont 
-                --phased_vcf_fn $input.vcf.gz
-        """
+                python $tools.CLAIR3/clair3.py CallVariantsFromCffi
+                    --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/full_alignment
+                    --bam_fn $input.bam 
+                    --call_fn $output.vcf
+                    --sampleName ${sample}
+                    --ref_fn $REF
+                    --full_aln_regions $input.bed
+                    --ctgName $chr
+                    --add_indel_length
+                    --gvcf ${calling.enable_gvcf?"True":"False"}
+                    --minMQ $calling.min_mq
+                    --minCoverage $calling.min_cov
+                    --snp_min_af $calling.snp_min_af
+                    --indel_min_af $calling.indel_min_af
+                    --platform ont 
+                    --phased_vcf_fn $input.vcf.gz
+            """
+        }
     }
 }
 
