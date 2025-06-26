@@ -235,7 +235,8 @@ ximmer_summarize = {
     output.dir = sample
     
     var EXCLUDE_CNV_REGIONS : "$REF_BASE/cnv_tel_cen_excluded_regions_v2.bed",
-        target_bed : opts.targets
+        target_bed : opts.targets,
+        XIMMER : tools.XIMMER
     
     if(!file(EXCLUDE_CNV_REGIONS))
         fail "Please set the excluded CNV regions in $EXCLUDE_CNV_REGIONS or override the  EXCLUDE_CNV_REGIONS variable"
@@ -320,7 +321,7 @@ post_to_cxp = {
     var POST_RESULTS : false,
         cnv_batch: new File('.').absoluteFile.parentFile.parentFile.name,
         CXP_PROJECT : 'R0001_residual_project',
-        XIMMER_GNGS_JAR : "$XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar",
+        XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar",
         STAGE_CNV_RESULTS_TARGET : null
     
     requires CXP_URL : 'URL of CXP server to POST to'
