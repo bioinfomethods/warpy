@@ -763,3 +763,23 @@ rename_and_merge_demux_output = {
         """
     }
 }
+
+alignment_stats = {
+    output.dir = "coverage_stats"
+    var targets : "../../designs/WGS_REFFLAT_10_NOALT_38/WGS_REFFLAT_10_NOALT_38.bed"
+    var summary : null
+    var max_frag_len : 1000000
+    var max_high_res_len : 50000
+    var frag_len_cov : 15000
+
+    def target_file = ""
+    if( summary ){
+        target_file = "--adaptive-sampling-summary $summary"	
+    }
+    transform(".bam") to(".coverage_stats.tsv", ".fragment_length.hist"){
+        exec """
+        $tools.COVERAGE_STATS --bam $input -o $output1 --fragment-length-hist $output2 --target-regions $targets --maximum-tracked-fragment-length $max_frag_len --maximum-high-resolution-fragment-length $max_high_res_len -f $frag_len_cov $target_file
+        """
+    }
+
+}
