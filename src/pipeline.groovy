@@ -122,7 +122,8 @@ sample_channel = channel(input_files).named('sample')
 // Set the family ids equal to sample id if no family id is provided
 meta.each { if(!it.value.family_id) it.value.family_id = it.value.identifier }
 
-family_channel = channel(meta*.value.grep {it.parents}*.family_id).named('family')
+//family_channel = channel(meta*.value.grep {it.parents}*.family_id).named('family')
+family_channel = channel(meta*.value.family_id).named('family')
    
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
