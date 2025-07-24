@@ -215,6 +215,69 @@ jasmine_merge = {
     }
 }
 
+svelt_singleton_merge = {
+    doc 'Merge singleton SVs from different tools'
+
+    branch.dir = "sv/$sample"
+
+    def tmp_vcf = branch.dir + "/${sample}.svelt.tmp.sv.vcf.gz"
+
+    from("*.vcf.gz") produce("${sample}.svelt.sv.vcf.gz") {
+        exec """
+            set -eo pipefail
+
+            export RUST_LOG=info
+
+            svelt merge -r $REF -o $tmp_vcf $inputs
+
+            gunzip -dc $tmp_vcf | bgzip -c > $output
+
+            tabix -p vcf $output
+
+            rm $tmp_vcf
+        """
+    }
+}
+
+svelt_family_merge = {
+    doc 'Merge SVs for different individuals in a family'
+
+    requires family : 'family to process'
+
+    var sv_tool: 'sniffles'
+
+    var svelt_args : '--unwanted-info RNAMES,COVERAGE,SUPPORT,SUPPORT_LONG,PHASE,SUPPORT_SA'
+
+    output.dir = "sv/$family"
+
+    def tmp_vcf = output.dir + "/${family}.${sv_tool}.svelt.family.sv.tmp.vcf.gz"
+
+    def family_samples = meta*.value.grep { println(it); it.family_id == family }
+    def family_sample_identifiers = family_samples.collect { it.identifier }
+
+    def vcfsListings = sample_sv_vcfs
+      .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
+      .sort()
+      .collect { k, v -> v }
+      .flatten()
+      .unique()
+      .join(' ')
+
+    produce("${family}.${sv_tool}.svelt.family.sv.vcf.gz") {
+        exec """
+            set -eo pipefail
+
+            svelt merge -r $REF $svelt_args --write-merge-table svelt.${sv_tool}.tsv -o $tmp_vcf $vcfsListings
+
+            gunzip -dc $tmp_vcf | bgzip -c > $output
+
+            tabix -p vcf $output
+
+            rm $tmp_vcf
+        """
+    }
+}
+
 //Assume ONT data here
 cutesv = {
     var cutesv_args : ''
