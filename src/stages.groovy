@@ -155,7 +155,7 @@ unmap_bam = {
         exec """
             set -eo pipefail
 
-            $SAMTOOLS view -@ $threads -h -b -x RG -o $tmp_bam $input.bam
+            $SAMTOOLS view -@ $threads -h -b -x RG -x RG -x RG -o $tmp_bam $input.bam
 
             gatk RevertSam -I $tmp_bam
                 -O $output.bam
