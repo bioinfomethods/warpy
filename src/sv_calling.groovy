@@ -27,11 +27,17 @@ filterBam = {
 sniffles2 = {
     
     var sniffles_args : ''
+
+    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
     
     branch.dir = "sv/$sample"
 
     produce("${sample}.sniffles.vcf") {
         exec """
+            set -eo pipefail
+
+            export JAVA=$tools.JAVA
+
             export REF_PATH=$REF
 
             sniffles
@@ -46,7 +52,8 @@ sniffles2 = {
                 --vcf ${output.vcf.prefix}.tmp.vcf
 
             sed '/.:0:0:0:NULL/d' ${output.vcf.prefix}.tmp.vcf | 
-            awk -f $BASE/scripts/fix_allele_seq.awk > $output.vcf
+            awk -f $BASE/scripts/fix_allele_seq.awk | 
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if (v.info.SVTYPE == "DEL") { v.info.END = v.pos - v.info.SVLEN.toInteger() } } } }' > $output.vcf
         """
     }
 }
@@ -81,6 +88,8 @@ sniffles2_joint_call = {
 
     var sniffles_args : ''
 
+    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
+
     def family_samples = meta*.value.grep { println(it);  it.family_id == family }
 
     println "Samples to process for $family are ${family_samples*.identifier}"
@@ -97,13 +106,18 @@ sniffles2_joint_call = {
     
     from(family_snfs*.value.flatten()) produce("${family}.sniffles.family.sv.vcf.gz") {
         exec """
+            set -eo pipefail
+
+            export JAVA=$tools.JAVA
+
             sniffles
                 --threads $threads
                 --input $inputs
                 --vcf $output.prefix
 
             $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
-            awk -f $BASE/scripts/fix_allele_seq.awk | bgzip -c - > $output.vcf.gz
+            awk -f $BASE/scripts/fix_allele_seq.awk | 
+            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if (v.info.SVTYPE == "DEL") { v.info.END = v.pos - v.info.SVLEN.toInteger() } } } }' | bgzip -c > $output.vcf.gz
 
             bcftools index -t $output.vcf.gz
         """
