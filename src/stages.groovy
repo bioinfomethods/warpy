@@ -157,6 +157,8 @@ unmap_bam = {
 
             $SAMTOOLS view -@ $threads -h -b -x RG -x RG -x RG -o $tmp_bam $input.bam
 
+            $SAMTOOLS reheader -c 'grep -v ^@RG' $tmp_bam
+
             gatk RevertSam -I $tmp_bam
                 -O $output.bam
                 --KEEP_FIRST_DUPLICATE
