@@ -201,7 +201,6 @@ jasmine_merge = {
                 --clique_merging 
                 --dup_to_ins 
                 --normalize_type 
-                --require_first_sample 
                 --default_zero_genotype
                 --run_iris 
                     iris_args=
