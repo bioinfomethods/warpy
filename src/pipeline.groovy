@@ -132,7 +132,7 @@ init = {
     // println "\nUsing REF_MMI: $REF_MMI"
     
     // Define mmi path based on reference file name
-    REF_MMI = (lrs_platform = "hifi")? REF.replaceAll('\\.[^.]*$','.hifi.mmi') : REF.replaceAll('\\.[^.]*$','.mmi')
+    REF_MMI = (lrs_platform == "hifi")? REF.replaceAll('\\.[^.]*$','.hifi.mmi') : REF.replaceAll('\\.[^.]*$','.mmi')
 
     produce('versions.txt') {
         exec """
