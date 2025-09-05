@@ -219,9 +219,9 @@ run(input_files*.value.flatten()) {
          sv_calling: sample_channel * [ 
             mosdepth.using(bam_ext: lrs_bam_ext) + filterBam.using(bam_ext: lrs_bam_ext) + [
                 sniffles2_for_trios,
-                sniffles2 + filter_sv_calls.using(sv_tool:"sniffles"),
-                cutesv + filter_sv_calls.using(sv_tool:"cutesv")
-            ] + svelt_singleton_merge ], //Need to add annotate_sv
+                sniffles2 + filter_sv_calls.using(sv_tool:"sniffles") + annotate_sv,
+                cutesv + filter_sv_calls.using(sv_tool:"cutesv") + annotate_sv
+            ] ],
 
          methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { lrs_platform == "ont" } ],
          
