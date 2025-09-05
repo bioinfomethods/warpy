@@ -122,7 +122,8 @@ sample_channel = channel(input_files).named('sample')
 // Set the family ids equal to sample id if no family id is provided
 meta.each { if(!it.value.family_id) it.value.family_id = it.value.identifier }
 
-family_channel = channel(meta*.value.grep {it.parents}*.family_id).named('family')
+//family_channel = channel(meta*.value.grep {it.parents}*.family_id).named('family')
+family_channel = channel(meta*.value.family_id).named('family')
    
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
@@ -131,7 +132,7 @@ init = {
     // println "\nUsing REF_MMI: $REF_MMI"
     
     // Define mmi path based on reference file name
-    REF_MMI = (lrs_platform = "hifi")? REF.replaceAll('\\.[^.]*$','.hifi.mmi') : REF.replaceAll('\\.[^.]*$','.mmi')
+    REF_MMI = (lrs_platform == "hifi")? REF.replaceAll('\\.[^.]*$','.hifi.mmi') : REF.replaceAll('\\.[^.]*$','.mmi')
 
     produce('versions.txt') {
         exec """
@@ -234,6 +235,10 @@ run(input_files*.value.flatten()) {
             init_jasmine_bams + [
                 init_jasmine_vcfs.using(sv_tool:"sniffles") + jasmine_merge.using(sv_tool:"sniffles") + annotate_sv,
                 init_jasmine_vcfs.using(sv_tool:"cutesv") + jasmine_merge.using(sv_tool:"cutesv") + annotate_sv
+            ],
+            [
+                svelt_family_merge.using(sv_tool:"sniffles") + annotate_sv,
+                svelt_family_merge.using(sv_tool:"cutesv") + annotate_sv
             ]
         ],
         combine_family_vcfs,
