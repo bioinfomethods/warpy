@@ -42,6 +42,8 @@ println(new groovy.json.JsonBuilder(input_files).toPrettyString())
 
 println("Flattened: " + input_files*.value.flatten())
 
+def lrs_platform = "ont"
+
 // input data type keyed by sample
 input_data_type = input_files.collectEntries { sam, files ->
     def by_ext = files.groupBy { ext(new File(it)) }
@@ -78,13 +80,13 @@ if (binding.hasVariable('assay') && assay == 'GENERIC-LRSWGS-PACBIO') {
         throw new bpipe.PipelineError("Sample data type mismatched with the assay (Pac Bio) provided")
     }
     else {
-        def lrs_platform = "hifi"
+        lrs_platform = "hifi"
         clair3_model = model_map.find { it.basecaller == 'hifi_revio' }
         assert clair3_model != null : 'No Hifi Revio model could be found in ' + model_map_file
     }
 }
 else {
-    def lrs_platform = "ont"
+    lrs_platform = "ont"
     clair3_model = model_map.find { it.basecaller == 'dorado' && it.basecall_model_name == params.drd_model }
     assert clair3_model != null : 'No dorado model for base caller model ' + params.drd_model + ' could be found in ' + model_map_file
 }
@@ -125,6 +127,11 @@ meta.each { if(!it.value.family_id) it.value.family_id = it.value.identifier }
 //family_channel = channel(meta*.value.grep {it.parents}*.family_id).named('family')
 family_channel = channel(meta*.value.family_id).named('family')
    
+sample_vcfs = Collections.synchronizedMap([:])
+sample_bams = Collections.synchronizedMap([:])
+sample_snfs = Collections.synchronizedMap([:])
+sample_sv_vcfs = Collections.synchronizedMap([:])
+
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
     println "\nUsing base calling model: $params.drd_model"
@@ -170,11 +177,6 @@ forward_sample_bam = {
     // println "Forwarding bam file $input.bam for sample $sample"
     forward input.bam
 }
-
-sample_vcfs = Collections.synchronizedMap([:])
-sample_bams = Collections.synchronizedMap([:])
-sample_snfs = Collections.synchronizedMap([:])
-sample_sv_vcfs = Collections.synchronizedMap([:])
 
 annotate_sv = segment {
   symbolic_alt + sv_annotate + strvctvre_annotate
@@ -232,14 +234,10 @@ run(input_files*.value.flatten()) {
     family_channel * [ 
         init_family + [ 
             sniffles2_joint_call + annotate_sv,
-            init_jasmine_bams + [
-                init_jasmine_vcfs.using(sv_tool:"sniffles") + jasmine_merge.using(sv_tool:"sniffles") + annotate_sv,
-                init_jasmine_vcfs.using(sv_tool:"cutesv") + jasmine_merge.using(sv_tool:"cutesv") + annotate_sv
-            ],
-            [
-                svelt_family_merge.using(sv_tool:"sniffles") + annotate_sv,
-                svelt_family_merge.using(sv_tool:"cutesv") + annotate_sv
-            ]
+            jasmine_merge.using(sv_tool:"sniffles") + annotate_sv,
+            jasmine_merge.using(sv_tool:"cutesv") + annotate_sv,
+            svelt_family_merge.using(sv_tool:"sniffles") + annotate_sv,
+            svelt_family_merge.using(sv_tool:"cutesv") + annotate_sv
         ],
         combine_family_vcfs,
     ]

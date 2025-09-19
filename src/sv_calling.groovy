@@ -90,7 +90,7 @@ sniffles2_joint_call = {
 
     var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
 
-    def family_samples = meta*.value.grep { println(it);  it.family_id == family }
+    def family_samples = meta*.value.grep { it.family_id == family }
 
     println "Samples to process for $family are ${family_samples*.identifier}"
 
@@ -124,52 +124,6 @@ sniffles2_joint_call = {
     }
 }
 
-init_jasmine_bams = {
-    def family_samples = meta*.value.grep { println(it); it.family_id == family }
-    def family_sample_identifiers = family_samples.collect { it.identifier }
-
-    def bamsListings = sample_bams
-      .findAll { k, v -> k in family_sample_identifiers }
-      .sort()
-      .collect { k, v -> v }
-      .flatten()
-      .unique()
-      .join('\\n')
-
-    produce("${family}.bam.listings.txt") {
-        output.dir = "sv/$family"
-
-        groovy """
-            new File('$output.bam.listings.txt').text = '''$bamsListings'''
-        """
-    }
-}
-
-init_jasmine_vcfs = {
-    var sv_tool: 'sniffles'
-
-    def family_samples = meta*.value.grep { println(it); it.family_id == family }
-    def family_sample_identifiers = family_samples.collect { it.identifier }
-
-    def vcfsListings = sample_sv_vcfs
-      .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
-      .sort()
-      .collect { k, v -> v }
-      .flatten()
-      .unique()
-      .join('\\n')
-
-    def vcf_list = (sv_tool == 'sniffles'? "${family}.vcf.listings.txt":"${family}.${sv_tool}.vcf.listings.txt")
-
-    output.dir = "sv/$family"
-
-    produce(vcf_list) {
-        groovy """
-            new File('$output.vcf.listings.txt').text = '''$vcfsListings'''
-        """
-    }
-}
-
 jasmine_merge = {
     doc 'Joint call SVs for a family using Jasmine'
 
@@ -177,7 +131,27 @@ jasmine_merge = {
 
     var sv_tool: 'sniffles'
 
+    def family = branch.family_id
     def out_vcf = (sv_tool == 'sniffles'? "${family}.jasmine.family.sv.vcf.gz":"${family}.${sv_tool}.jasmine.family.sv.vcf.gz")
+
+    def family_samples = meta*.value.grep { it.family_id == family }
+    def family_sample_identifiers = family_samples.collect { it.identifier }
+
+    def family_bams = sample_bams
+      .findAll { k, v -> k in family_sample_identifiers }
+      .sort()
+      .collect { k, v -> v }
+      .flatten()
+      .unique()
+      .join(' ')
+
+    def family_vcfs = sample_sv_vcfs
+      .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
+      .sort()
+      .collect { k, v -> v }
+      .flatten()
+      .unique()
+      .join(' ')
 
     output.dir = "sv/$family"
 
@@ -185,12 +159,16 @@ jasmine_merge = {
         exec """
             set -o pipefail
 
+            for bam in ${family_bams}; do echo \$bam; done > ${output.dir}/bam.listings.txt
+
+            for vcf in ${family_vcfs}; do echo \$vcf; done > ${output.dir}/vcf.listings.txt
+
             jasmine 
                 threads=$threads 
                 out_dir=$output.dir 
                 genome_file=$REF 
-                file_list=$input.vcf.listings.txt 
-                bam_list=$input.bam.listings.txt 
+                file_list=${output.dir}/vcf.listings.txt 
+                bam_list=${output.dir}/bam.listings.txt 
                 out_file=$output.prefix
                 min_support=$jasmine_sv.min_support 
                 --mark_specific 
@@ -251,7 +229,7 @@ svelt_family_merge = {
 
     def tmp_vcf = output.dir + "/${family}.${sv_tool}.svelt.family.sv.tmp.vcf.gz"
 
-    def family_samples = meta*.value.grep { println(it); it.family_id == family }
+    def family_samples = meta*.value.grep { it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
 
     def vcfsListings = sample_sv_vcfs
