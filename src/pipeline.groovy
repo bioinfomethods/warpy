@@ -42,7 +42,7 @@ println(new groovy.json.JsonBuilder(input_files).toPrettyString())
 
 println("Flattened: " + input_files*.value.flatten())
 
-def lrs_platform = "ont"
+lrs_platform = "ont"
 
 // input data type keyed by sample
 input_data_type = input_files.collectEntries { sam, files ->
