@@ -28,8 +28,6 @@ sniffles2 = {
     
     var sniffles_args : ''
 
-    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
-    
     branch.dir = "sv/$sample"
 
     produce("${sample}.sniffles.vcf") {
@@ -53,7 +51,7 @@ sniffles2 = {
 
             sed '/.:0:0:0:NULL/d' ${output.vcf.prefix}.tmp.vcf | 
             awk -f $BASE/scripts/fix_allele_seq.awk | 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if (v.info.SVTYPE == "DEL") { v.info.END = v.pos - v.info.SVLEN.toInteger() } } } }' > $output.vcf
+            $tools.GROOVY -cp $tools.GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if (v.info.SVTYPE == "DEL") { v.info.END = v.pos - v.info.SVLEN.toInteger() } } } }' > $output.vcf
         """
     }
 }
@@ -88,8 +86,6 @@ sniffles2_joint_call = {
 
     var sniffles_args : ''
 
-    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
-
     def family_samples = meta*.value.grep { it.family_id == family }
 
     println "Samples to process for $family are ${family_samples*.identifier}"
@@ -117,7 +113,7 @@ sniffles2_joint_call = {
 
             $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
             awk -f $BASE/scripts/fix_allele_seq.awk | 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if (v.info.SVTYPE == "DEL") { v.info.END = v.pos - v.info.SVLEN.toInteger() } } } }' | bgzip -c > $output.vcf.gz
+            $tools.GROOVY -cp $tools.GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if (v.info.SVTYPE == "DEL") { v.info.END = v.pos - v.info.SVLEN.toInteger() } } } }' | bgzip -c > $output.vcf.gz
 
             bcftools index -t $output.vcf.gz
         """
@@ -397,7 +393,7 @@ ximmer_summarize = {
 
             export JAVA_OPTS="-Xmx${memory}g"
 
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR:$tools.XIMMER/src/main/groovy:$tools.XIMMER/src/main/resources:$tools.XIMMER/src/main/js $tools.XIMMER/src/main/groovy/SummarizeCNVs.groovy  
+            $tools.GROOVY -cp $tools.GNGS_JAR:$tools.XIMMER/src/main/groovy:$tools.XIMMER/src/main/resources:$tools.XIMMER/src/main/js $tools.XIMMER/src/main/groovy/SummarizeCNVs.groovy  
                     -ddd $REF_BASE/decipher_population_cnvs.txt.gz
                     -dgv $REF_BASE/dgvMerged.txt.gz  
                     -refgene $REF_BASE/refGene.txt.gz  
@@ -461,72 +457,8 @@ zip_summary = {
     }
 }
 
-
-post_to_cxp = {
-    
-    var POST_RESULTS : false,
-        cnv_batch: new File('.').absoluteFile.parentFile.parentFile.name,
-        CXP_PROJECT : 'R0001_residual_project',
-        XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar",
-        STAGE_CNV_RESULTS_TARGET : null
-    
-    requires CXP_URL : 'URL of CXP server to POST to'
-
-    output.dir = sample
-    
-    if(!POST_RESULTS) 
-        succeed "Skipping posting results for ${sample} because the POST_RESULTS flag is false. Set this to true to send results to CXGo."
-
-    uses(cxp_posts:1) {
-        from(input.bam, "${sample}.zip", "${sample}.qc.zip") {
-            produce("${sample}.post.log.txt") {
-                
-                def stageCommand = "";
-                def IMPORT_ANALYSIS_ZIP="$input1.zip"
-                def IMPORT_QC_ZIP="$input.qc.zip"
-                
-                if(STAGE_CNV_RESULTS_TARGET) {
-                    stageCommand = 
-                    """
-                        scp $input1.zip $STAGE_CNV_RESULTS_TARGET
-
-                        scp $input.qc.zip $STAGE_CNV_RESULTS_TARGET
-                    """
-                    
-                    // Strip content prior to the : to allow staging with scp to remote host,
-                    // but plain path to be passed in the POST command
-                    IMPORT_ANALYSIS_ZIP=STAGE_CNV_RESULTS_TARGET.replaceAll('^.*:','') + "/" + file(input1.zip).name
-                    IMPORT_QC_ZIP=STAGE_CNV_RESULTS_TARGET.replaceAll('^.*:','') + "/" + file(input.qc.zip).name
-                }
-
-                var sampleSex : sex // meta.get(sample).sex
-                 
-                exec """
-                    $stageCommand
-
-                    set -o pipefail
-
-                    $tools.GROOVY -cp $XIMMER_GNGS_JAR:$tools.XIMMER/src/main/groovy:$tools.XIMMER/src/main/resources:$tools.XIMMER/src/main/js $tools.XIMMER/src/main/groovy/PostToCXPWGS.groovy
-                        -project $CXP_PROJECT
-                        -analysis $IMPORT_ANALYSIS_ZIP
-                        -sex $sample:$sampleSex
-                        -cxp $CXP_URL 
-                        -target $target_bed
-                        -batch $cnv_batch
-                        -bam $sample:$input.bam
-                        -qc $IMPORT_QC_ZIP  | tee $output.txt
-
-
-                """
-            }
-        }
-    }
-}
-
 symbolic_alt = {
     
-    var XIMMER_GNGS_JAR : "$tools.XIMMER/tools/groovy-ngs-utils/1.0.9/groovy-ngs-utils.jar"
-
     branch.sv_out = branch.family_branch ? branch.family_id : branch.sample
     
     output.dir = "sv/${branch.sv_out}"
@@ -540,7 +472,7 @@ symbolic_alt = {
             tmp_vcf=\$(echo $output.vcf | sed 's/.vcf/.sym_alt.tmp.vcf/')
 
             gunzip -c $input.vcf.gz |
-            $tools.GROOVY -cp $XIMMER_GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } \
+            $tools.GROOVY -cp $tools.GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } \
                 else if (v.info.SVTYPE == "TRA") { v.alt = "<BND>"; v.info.SVTYPE = "BND"; v.info.END2 = v.info.END; v.info.remove("END") } } } }' \
             > \$tmp_vcf
 
