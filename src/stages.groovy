@@ -163,7 +163,7 @@ unmap_bam = {
                 --SANITIZE
                 --OQ
                 --VALIDATION_STRINGENCY LENIENT
-                --MAX_RECORDS_IN_RAM 50000
+                --MAX_RECORDS_IN_RAM 20000
                 --TMP_DIR $TMPDIR
 
             rm $tmp_bam
