@@ -8,6 +8,7 @@ options {
     samples 'Sample metadata file', args:1, type: File, required: true
     targets 'Target regions to call variants in', args:1, type: File, required: true
     remap 'Remap the input BAM file', args:0, required: false
+    methylation 'Produce methylation analysis - ONT only', args: 1, required: false
 }
 
 load 'stages.groovy'
@@ -157,6 +158,9 @@ init = {
 init_family = {
     branch.family_branch = true
     branch.family_id = family
+    branch.family_size = meta*.value.grep { it.family_id == family }.size()
+
+    println "setting family: ${family} (size = ${branch.family_size})"
 }
 
 align_ubam = segment {
@@ -180,6 +184,45 @@ forward_sample_bam = {
 
 annotate_sv = segment {
   symbolic_alt + sv_annotate + strvctvre_annotate
+}
+
+merge_family = segment {
+    [
+        sniffles2_joint_call + annotate_sv,
+        jasmine_merge.using(sv_tool:"sniffles") + annotate_sv,
+        jasmine_merge.using(sv_tool:"cutesv") + annotate_sv,
+        svelt_family_merge.using(sv_tool:"sniffles") + annotate_sv,
+        svelt_family_merge.using(sv_tool:"cutesv") + annotate_sv,
+    ]
+}
+
+forward_singleton_vcfs = {
+    var sv_tool: 'sniffles'
+
+    def family = branch.family_id
+    def out_vcf = (sv_tool == 'sniffles'? "${family}.jasmine.family.sv.vcf.gz":"${family}.${sv_tool}.jasmine.family.sv.vcf.gz")
+
+    def family_samples = meta*.value.grep { it.family_id == family }
+    def family_sample_identifiers = family_samples.collect { it.identifier }
+
+    def family_vcfs = sample_sv_vcfs
+      .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
+      .sort()
+      .collect { k, v -> v }
+      .flatten()
+      .unique()
+      .collect { v -> "${v}.gz" }
+
+    println "for family ${family}, forwarding: ${family_vcfs}"
+
+    forward family_vcfs
+}
+
+annotate_singleton_sv = segment {
+    [
+        forward_singleton_vcfs.using(sv_tool: "sniffles") + annotate_sv,
+        forward_singleton_vcfs.using(sv_tool: "cutesv") + annotate_sv
+    ]
 }
 
 run(input_files*.value.flatten()) {
@@ -221,24 +264,18 @@ run(input_files*.value.flatten()) {
          sv_calling: sample_channel * [ 
             mosdepth.using(bam_ext: lrs_bam_ext) + filterBam.using(bam_ext: lrs_bam_ext) + [
                 sniffles2_for_trios,
-                sniffles2 + filter_sv_calls.using(sv_tool:"sniffles") + annotate_sv,
-                cutesv + filter_sv_calls.using(sv_tool:"cutesv") + annotate_sv
+                sniffles2 + filter_sv_calls.using(sv_tool:"sniffles"),
+                cutesv + filter_sv_calls.using(sv_tool:"cutesv")
             ] ],
 
-         methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { lrs_platform == "ont" } ],
+         methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" } ],
          
          str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
     ] +
 
     // Phase 3: family merging
     family_channel * [ 
-        init_family + [ 
-            sniffles2_joint_call + annotate_sv,
-            jasmine_merge.using(sv_tool:"sniffles") + annotate_sv,
-            jasmine_merge.using(sv_tool:"cutesv") + annotate_sv,
-            svelt_family_merge.using(sv_tool:"sniffles") + annotate_sv,
-            svelt_family_merge.using(sv_tool:"cutesv") + annotate_sv
-        ],
+        init_family + merge_family.when { branch.family_size > 1 } + annotate_singleton_sv.when { branch.family_size == 1 },
         combine_family_vcfs,
     ]
 }

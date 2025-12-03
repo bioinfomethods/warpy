@@ -473,7 +473,7 @@ symbolic_alt = {
 
             gunzip -c $input.vcf.gz |
             $tools.GROOVY -cp $tools.GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } \
-                else if (v.info.SVTYPE == "TRA") { v.alt = "<BND>"; v.info.SVTYPE = "BND"; v.info.END2 = v.info.END; v.info.remove("END") } } } }' \
+                else if (v.info.SVTYPE == "TRA" || v.info.SVTYPE == "BND") { v.alt = "<BND>"; v.info.SVTYPE = "BND"; v.info.END2 = v.info.END; v.info.remove("END") } } } }' \
             > \$tmp_vcf
 
             if [ $branch.family_branch ]; then
