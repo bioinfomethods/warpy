@@ -335,7 +335,7 @@ call_short_variants = {
                                    --chunk_size=$calling.chunk_size
                                    $gvcfFlags
 
-            $BASE/scripts/fix_clair3_gvcf.py
+            $BASE/scripts/fix_clair3_gvcf_v2.py
                 -i ${output.dir}/merge_output.gvcf.gz
                 -o $output.g.vcf.gz.prefix
                 -r $REF
