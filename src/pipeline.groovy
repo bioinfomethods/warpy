@@ -133,7 +133,7 @@ sample_vcfs = Collections.synchronizedMap([:])
 sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 sample_sv_vcfs = Collections.synchronizedMap([:])
-sample_somaliers = Collections.synchronizedMap([:])
+sample_somaliers = Collections.synchronizedList([])
 
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
@@ -280,7 +280,8 @@ run(input_files*.value.flatten()) {
     // Phase 3: family merging
     family_channel * [ 
         init_family + merge_family.when { branch.family_size > 1 } + annotate_singleton_sv.when { branch.family_size == 1 },
-        combine_family_vcfs,
-	somalier_relate
-    ]
+        combine_family_vcfs
+    ] + 
+
+    somalier_relate
 }

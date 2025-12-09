@@ -17,36 +17,24 @@ somalier_extract = {
         """
     }
 
-    sample_somaliers.get(sample, []).add(output.toString())
+    sample_somaliers.add(output.toString())
 }
 
 somalier_relate = {
     doc "Evaluate the relatedness between all samples in the batch from extracted sites and ped file"
 
-    requires family : 'family to process'
-
     var pedigree_path : false
 
     def pedigree_source = pedigree_path?:input.ped
 
-    def family_samples = meta*.value.grep { it.family_id == family }
-
-    println "Samples to process for $family are ${family_samples*.identifier}"
-
-    def family_somaliers = family_samples*.identifier.collectEntries { [ it, sample_somaliers[it] ] }
-    
-    def samples_missing_somaliers = family_somaliers.grep { it.value == null }*.key
-    if(samples_missing_somaliers)
-        fail "Samples $samples_missing_somaliers from family $family are missing somaliers. Please check appropriate inputs have been provided"
-
     output.dir="qc"
 
-    println "Inputs are: " + family_somaliers*.value.flatten()
+    println "Inputs are: " + sample_somaliers
 
-    from(family_somaliers*.value.flatten()) produce("somalier.${family}.html") {
+    from([pedigree_source, *sample_somaliers]) produce("somalier.html") {
         exec """
             $tools.SOMALIER relate
-                --ped $pedigree_source
+                --ped $input.ped
                 --output-prefix $output.prefix
                 $inputs.somalier
         """
