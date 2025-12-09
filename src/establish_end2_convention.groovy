@@ -1,6 +1,12 @@
 import gngs.*
 
 gngs.VCF.filter() {
+    def hasEnd2 = it.header.headerLines.any { line ->
+        line.startsWith("##INFO=<ID=END2,")
+    };
+    if (!hasEnd2) {
+        it.header.addInfoHeaders(['##INFO=<ID=END2,Number=1,Type=Integer,Description="Position of breakpoint on CHR2">']);
+    }
     it.update { v -> {
         if (v.info.SVTYPE == "BND") {
             if (!v.info.END2) {
