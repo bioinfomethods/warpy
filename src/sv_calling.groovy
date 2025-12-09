@@ -176,9 +176,6 @@ jasmine_merge = {
                 --dup_to_ins 
                 --normalize_type 
                 --default_zero_genotype
-                --run_iris 
-                    iris_args=
-                        min_ins_length=$jasmine_sv.iris.min_ins_length,--rerunracon,--keep_long_variants
 
             $BASE/scripts/vcfsort -T $TMPDIR -N $threads $output.prefix | 
             awk -f $BASE/scripts/fix_allele_seq.awk | bgzip -c - > $output.vcf.gz
@@ -471,23 +468,8 @@ symbolic_alt = {
 
             tmp_vcf=\$(echo $output.vcf | sed 's/.vcf/.sym_alt.tmp.vcf/')
 
-            gunzip -c $input.vcf.gz |
-            $tools.GROOVY -cp $tools.GNGS_JAR -e 'gngs.VCF.filter() { it.update { v -> { if(v.info.SVTYPE in ["INS", "DEL"]) { v.alt = "<" + v.info.SVTYPE + ">" } \
-                else if (v.info.SVTYPE == "TRA" || v.info.SVTYPE == "BND") { v.alt = "<BND>"; v.info.SVTYPE = "BND"; v.info.END2 = v.info.END; v.info.remove("END") } } } }' \
-            > \$tmp_vcf
-
-            if [ $branch.family_branch ]; then
-                echo '##INFO=<ID=END2,Number=1,Type=Integer,Description="CHR2 END position for breakend SVs">' > ${output.dir}/vcf_header.txt
-
-                bcftools annotate -h ${output.dir}/vcf_header.txt -o $output.vcf \$tmp_vcf
-
-                rm ${output.dir}/vcf_header.txt \$tmp_vcf
-
-            else
-                mv \$tmp_vcf $output.vcf
-
-            fi
-        """
+            gunzip -c $input.vcf.gz | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/convert_alts_to_symbolic.groovy > $output
+        """, "symbolic_alt"
     }
 }
 
@@ -495,14 +477,22 @@ sv_annotate = {
 
     output.dir = "sv/${branch.sv_out}"
 
+    def tmpname = UUID.randomUUID().toString() + ".vcf"
+
     transform(".vcf") to(".sv_annotate.vcf.gz") {
         exec """
+            cat $input | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/establish_end2_convention.groovy > $tmpname
+        """, "symbolic_alt"
+
+        exec """
             gatk SVAnnotate 
-                -V $input.vcf
+                -V $tmpname
                 --protein-coding-gtf $GENCODE_GTF
                 --lenient
                 -O $output.vcf.gz
-        """
+
+            rm -rf $tmpname
+        """, "sv_annotate"
     }
 }
 
@@ -514,14 +504,25 @@ strvctvre_annotate = {
 
     output.dir = "sv/${branch.sv_out}"
 
+    def tmpname = UUID.randomUUID().toString() + ".vcf"
+
     transform('vcf.gz') to('strvctvre.vcf.bgz') {
         exec """
-            python $tools.STRVCTVRE_HOME/StrVCTVRE.py -p $PHYLOP100WAY -i "$input.vcf.gz" -o $output.vcf.bgz.prefix
+            gunzip -c $input 
+            | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/establish_end_convention.groovy > $tmpname
+
+            bgzip -c $tmpname > ${tmpname}.bgz
+        """, "symbolic_alt"
+
+        exec """
+            python $tools.STRVCTVRE_HOME/StrVCTVRE.py -p $PHYLOP100WAY -i ${tmpname}.bgz -o $output.vcf.bgz.prefix
 
             bgzip -c $output.vcf.bgz.prefix > $output.vcf.bgz
 
             tabix -p vcf $output.vcf.bgz
-        """
+
+            rm -rf ${tmpname} ${tmpname}.bgz
+        """, "strvctvre_annotate"
     }
 }
 
