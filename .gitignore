@@ -1,8 +1,11 @@
 models
-tools
+tools/*
+tools/containers/*
 .DS_Store
 !tools/bpipe
 !tools/lrs-plotting
+!tools/containers/required-images.txt
+!tools/containers/fetch-images.sh
 *.fast5
 *.fasta
 *.fai

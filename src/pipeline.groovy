@@ -15,6 +15,7 @@ load 'stages.groovy'
 load 'sv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
+load 'qc_stages.groovy'
 
 requires samples_parser : "Please ensure a samples_parser is defined in bpipe.config as a parameter"
 
@@ -132,6 +133,7 @@ sample_vcfs = Collections.synchronizedMap([:])
 sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 sample_sv_vcfs = Collections.synchronizedMap([:])
+sample_somaliers = Collections.synchronizedList([])
 
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
@@ -243,9 +245,11 @@ run(input_files*.value.flatten()) {
 
     // Phase 2: single sample variant calling
     [
+        qc: sample_channel * [ somalier_extract ],
+
          snp_calling : sample_channel * [ 
             call_short_variants.using(bam_ext: lrs_bam_ext) + normalize_gvcf + 
-            phase_variants.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf + 
+            phase_variants.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf + check_variant_fraction +
             haplotag_bam.using(bam_ext: lrs_bam_ext)
             /*
              partitions   * [ pileup_variants ] + aggregate_pileup_variants +
@@ -276,6 +280,8 @@ run(input_files*.value.flatten()) {
     // Phase 3: family merging
     family_channel * [ 
         init_family + merge_family.when { branch.family_size > 1 } + annotate_singleton_sv.when { branch.family_size == 1 },
-        combine_family_vcfs,
-    ]
+        combine_family_vcfs
+    ] + 
+
+    somalier_relate
 }
