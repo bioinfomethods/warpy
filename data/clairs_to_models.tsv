@@ -1,0 +1,14 @@
+clair3_model_name	clairs_to_model_name	clairs_to_nomodel_reason
+r1041_e82_400bps_hac_v430	-	ClairS-TO has not been trained on Clair3 model
+r1041_e82_400bps_hac_v420	ont_r10_dorado_sup_5khz_ssrs	Not an officially matched model
+r1041_e82_400bps_hac_v410	ont_r10_dorado_hac_4khz	-
+r1041_e82_400bps_hac_v400	-	ClairS-TO has not been trained on Clair3 model
+r1041_e82_400bps_sup_v400	-	ClairS-TO has not been trained on Clair3 model
+r1041_e82_400bps_sup_v420	ont_r10_dorado_sup_5khz_ssrs	-
+r1041_e82_400bps_sup_v500	-	ClairS-TO has not been trained on Clair3 model
+r1041_e82_400bps_hac_v500	-	ClairS-TO has not been trained on Clair3 model
+r1041_e82_400bps_hac_g632	-	ClairS-TO has not been trained on Clair3 model
+r1041_e82_400bps_sup_g615	ont_r10_guppy_sup_4khz	-
+r941_prom_sup_g5014	-	ClairS-TO has not been trained on Clair3 model
+hifi_sequel2	-	ClairS-TO has not been trained on Clair3 model
+hifi_revio	hifi_revio_ssrs	-

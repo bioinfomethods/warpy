@@ -142,6 +142,26 @@ rename_and_merge_demux_output = {
     }
 }
 
+add_sample_read_group = {
+    def SAMTOOLS = tools.SAMTOOLS
+
+    check {
+        exec """
+            $SAMTOOLS view -H $input.bam | grep -q "^@RG"\$\'\t\'"ID:${sample}"
+        """
+    } otherwise {
+        output.dir = "align"
+
+        filter("sample_rg") {
+            exec """
+                $SAMTOOLS addreplacerg -r '@RG\tID:${sample}\tSM:${sample}' -@ $threads -o $output.bam $input.bam
+
+                $SAMTOOLS index -@ $threads $output.bam
+            """
+        }
+    }
+}
+
 unmap_bam = {
     requires sample : 'the sample id being processed'
     
@@ -257,6 +277,8 @@ merge_pass_calls = {
             --write-index 
             --reference $REF 
             --threads $threads
+
+            $tools.SAMTOOLS index -@ $threads ${output[bam_ext]}
         """
     }
 }
