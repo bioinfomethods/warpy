@@ -237,7 +237,7 @@ svelt_family_merge = {
         exec """
             set -eo pipefail
 
-            svelt merge -r $REF $svelt_args --write-merge-table svelt.${sv_tool}.tsv -o $tmp_vcf $vcfsListings
+            svelt merge -r $REF $svelt_args --position-window=300 --write-merge-table svelt.${sv_tool}.tsv -o $tmp_vcf $vcfsListings
 
             gunzip -dc $tmp_vcf | bgzip -c > $output
 
