@@ -9,6 +9,7 @@ options {
     targets 'Target regions to call variants in', args:1, type: File, required: true
     remap 'Remap the input BAM file', args:0, required: false
     methylation 'Produce methylation analysis - ONT only', args: 1, required: false
+    no_mito 'Skip mito variant calling', args:0, required: false
 }
 
 load 'stages.groovy'
@@ -16,6 +17,7 @@ load 'sv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
 load 'qc_stages.groovy'
+load 'mito_stages.groovy'
 
 requires samples_parser : "Please ensure a samples_parser is defined in bpipe.config as a parameter"
 
@@ -44,6 +46,22 @@ println(new groovy.json.JsonBuilder(input_files).toPrettyString())
 
 println("Flattened: " + input_files*.value.flatten())
 
+def mito_samples = []
+def maternal_samples = [:]
+
+if (!opts.no_mito) {
+    def femaleSampleIds = meta.findAll { it.value.sex == "female" }
+            .collect { it.key }.toSet()
+    def parentSampleIds = meta.findAll { it.value.parents != null && it.value.parents.size() > 0 }
+            .collectMany { it.value.parents }.toSet()
+
+    mito_samples = meta.findAll { (it.key in femaleSampleIds) || !(it.key in parentSampleIds) }.collect { it.key }
+    maternal_samples = meta.findAll { it.value.parents.any { it in parentSampleIds && it in femaleSampleIds } }
+        .collectEntries { sample, sampleMeta -> [sample, sampleMeta.parents.find { it in femaleSampleIds }] }
+}
+
+mito_sample_channel = channel(mito_samples).named('sample')
+
 lrs_platform = "ont"
 
 // input data type keyed by sample
@@ -59,7 +77,6 @@ input_data_type = input_files.collectEntries { sam, files ->
         [(sam):by_ext.bam ? 'bam' : 'x5']
     }
 }
-println("input_data_type: " + input_data_type)
 
 lrs_bam_ext = (input_data_type.values()[0] == 'bam' && opts.remap)? 'remapped.bam' : 'bam'
 
@@ -95,6 +112,17 @@ else {
 
 if(clair3_model.clair3_model_name == '-') 
     throw new bpipe.PipelineError("No suitable clair3 model could be found: $clair3_model.clair3_nomodel_reason")
+
+if (!opts.no_mito) {
+    def clairs_to_model_map_file = "$BASE/data/clairs_to_models.tsv"
+    def clairs_to_model_map = new graxxia.TSV(clairs_to_model_map_file).toListMap()
+
+    clairs_to_model = clairs_to_model_map.find { it.clair3_model_name == clair3_model.clair3_model_name }
+    assert clairs_to_model != null : 'No ClairS-TO model for Clair3 model ' + clair3_model.clair3_model_name + ' could be found in ' + clairs_to_model_map_file
+
+    if(clairs_to_model.clairs_to_model_name == '-') 
+        throw new bpipe.PipelineError("No suitable clairs-TO model could be found: $clairs_to_model.clairs_to_nomodel_reason")
+}
 
 //targets = bed(opts.targets)
 
@@ -134,12 +162,18 @@ sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 sample_sv_vcfs = Collections.synchronizedMap([:])
 sample_somaliers = Collections.synchronizedList([])
+mito_sample_bams = Collections.synchronizedMap([:])
+mito_sample_vcfs = Collections.synchronizedMap([:])
 
 init = {
     println "\nProcessing ${input_files.size()} input files ...\n"
     println "\nUsing base calling model: $params.drd_model"
     println "\nUsing clair3 model: $clair3_model"
     // println "\nUsing REF_MMI: $REF_MMI"
+    
+    if (!opts.no_mito) {
+        println "\nUsing ClairS-TO model: $clairs_to_model"
+    }
     
     // Define mmi path based on reference file name
     REF_MMI = (lrs_platform == "hifi")? REF.replaceAll('\\.[^.]*$','.hifi.mmi') : REF.replaceAll('\\.[^.]*$','.mmi')
@@ -227,6 +261,10 @@ annotate_singleton_sv = segment {
     ]
 }
 
+call_mito_variants = segment {
+    forward_mito_sample_bam + run_clairs_to.using(bam_ext: lrs_bam_ext) + annotate_mito_variants
+}
+
 run(input_files*.value.flatten()) {
     
     // paritition genome into 10Mbp chunks, but only take those that overlap our target regions
@@ -239,8 +277,8 @@ run(input_files*.value.flatten()) {
         sample_channel * [
             basecall_align_reads.when { input_data_type[sample] == 'x5' } + 
             remap_bam.when { input_data_type[sample] == 'bam' && opts.remap } + 
-            forward_sample_bam.when { input_data_type[sample] == 'bam' && !opts.remap } + 
-            align_ubam.when { input_data_type[sample] == 'ubam' } + read_stats 
+            add_sample_read_group.when { input_data_type[sample] == 'bam' && !opts.remap } +
+            align_ubam.when { input_data_type[sample] == 'ubam' } + register_mito_bam + read_stats 
         ] +
 
     // Phase 2: single sample variant calling
@@ -274,7 +312,11 @@ run(input_files*.value.flatten()) {
 
          methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" } ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ],
+
+         mito_calling: mito_sample_channel * [ call_mito_variants ] + 
+            mito_sample_channel * [ run_mitoreport.using(maternal_ids: maternal_samples).when{ branch.sample in maternal_samples },
+                                    run_mitoreport.when{ !(maternal_samples.containsKey(branch.sample)) } ]
     ] +
 
     // Phase 3: family merging
