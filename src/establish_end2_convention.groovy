@@ -19,6 +19,12 @@ gngs.VCF.filter() {
                     }
                 }
             }
+            if (v.info.END2 == "0") {
+                v.info.END2 = "1"
+            }
+            if (v.info.END2 == 0) {
+                v.info.END2 = 1
+            }
             if (v.info.END) {
                 v.info.remove("END")
             }
