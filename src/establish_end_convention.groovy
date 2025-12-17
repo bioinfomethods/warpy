@@ -13,6 +13,12 @@ gngs.VCF.filter() {
                     }
                 }
             }
+            if (v.info.END == "0") {
+                v.info.END = "1"
+            }
+            if (v.info.END == 0) {
+                v.info.END = 1
+            }
             if (v.info.END2) {
                 v.info.remove("END2")
             }
