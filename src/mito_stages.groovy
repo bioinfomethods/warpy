@@ -107,7 +107,7 @@ run_mitoreport = {
             def maternal_mito_vcf = mito_sample_vcfs[maternal_sample]
 
             exec """
-                $tools.JAVA -jar $MITOREPORT_JAR \
+                $tools.JAVA -jar $tools.MITOREPORT_JAR \
                     mito-report \
                     --sample $sample \
                     -mann $MITOMAP_ANNOTATIONS \
@@ -124,7 +124,7 @@ run_mitoreport = {
         }
         else {
             exec """
-                $tools.JAVA -jar $MITOREPORT_JAR \
+                $tools.JAVA -jar $tools.MITOREPORT_JAR \
                     mito-report \
                     --sample $sample \
                     -mann $MITOMAP_ANNOTATIONS \

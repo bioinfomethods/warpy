@@ -312,12 +312,11 @@ run(input_files*.value.flatten()) {
 
          methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" } ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
+         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ],
 
          mito_calling: mito_sample_channel * [ call_mito_variants ] + 
             mito_sample_channel * [ run_mitoreport.using(maternal_ids: maternal_samples).when{ branch.sample in maternal_samples },
-                                    run_mitoreport.when{ !(maternal_samples.containsKey(branch.sample) ||
-                                                           maternal_samples.containsValue(branch.sample)) } ]
+                                    run_mitoreport.when{ !(maternal_samples.containsKey(branch.sample)) } ]
     ] +
 
     // Phase 3: family merging
