@@ -176,7 +176,7 @@ run(input_files*.value.flatten()) {
     // Phase 1: resolve or create BAM files
     make_mmi.when { ! new File(REF_MMI).exists() } +
         sample_channel * [
-            basecall_align_reads.when { input_data_type[sample] == 'x5' } + minimap2_align.when { input_data_type[sample] == 'ubam' } + minimap2_align_fastq.when { input_data_type[sample] == 'fastq.gz' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats + alignment_stats.using(targets: opts.targets) 
+            basecall_align_reads.when { input_data_type[sample] == 'x5' } + minimap2_align.when { input_data_type[sample] == 'ubam' } + minimap2_align_fastq.when { input_data_type[sample] == 'fastq.gz' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats 
         ] +
 
     // Phase 2: single sample variant calling
