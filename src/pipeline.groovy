@@ -193,10 +193,15 @@ run(input_files*.value.flatten()) {
                 contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants + normalize_vcf,
          ],
 
-         sv_calling: sample_channel * [ mosdepth + filterBam + [
-            sniffles2_for_trios,
-            sniffles2 + filter_sv_calls + annotate_sv
-         ] ],
+         sv_calling: sample_channel * [
+             mosdepth + filterBam + [
+                //sniffles2_for_trios,
+                sniffles2 + filter_sv_calls + annotate_sv
+             ],
+
+             // runs out of memoroy :-(
+             // longcalld
+         ],
 
          methylation: sample_channel * [ bam2bedmethyl ],
          
