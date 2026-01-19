@@ -45,7 +45,7 @@ calc_coverage = {
 samtools_stats = {
     output.dir = "qc"
 
-    transform('.bam') to('.samtools.stats.tsv') {
+    produce(sample + '.samtools.stats.tsv') {
         exec """
         $tools.SAMTOOLS stats --threads $threads $input.bam > $output.stats.tsv
         """
@@ -56,7 +56,7 @@ read_lengths = {
 
     output.dir = "qc"
 
-    def sample = file(input.bam).name.tokenize('.')[0]
+    var sample : file(input.bam).name.tokenize('.')[0]
 
     produce("${sample}.lengths.png", "${sample}.lengthsgb.png", "${sample}.n50.txt") {
 		exec """
