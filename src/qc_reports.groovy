@@ -14,10 +14,10 @@ calc_coverage = {
 
     requires TARGET_BED : 'Target regions to calculate QC for'
 
-    var GAP_THRESHOLD : 6,
-        GAP_TARGET: null
+    var GAP_THRESHOLD : 6
 
 
+    def GAP_TARGET = null
     def customGapTarget = TARGET_BED.absolutePath.replaceAll('.bed', '_GAP.bed')
     if(file(customGapTarget).exists()) {
         GAP_TARGET = customGapTarget
@@ -28,7 +28,7 @@ calc_coverage = {
 
     output.dir = "qc"
 
-    transform('.bam') to('.cov.stats.tsv', '.intervalsummary.tsv', '.gaps.tsv.gz') {
+    produce("${sample}.cov.stats.tsv", "${sample}.intervalsummary.tsv", "${sample}.gaps.tsv.gz") {
     exec """
          $tools.GNGS/bin/gngstool Cov  -L $TARGET_BED
                            -samplesummary $output.stats.tsv 
