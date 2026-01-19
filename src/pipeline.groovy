@@ -204,7 +204,7 @@ run(input_files*.value.flatten()) {
     ] + 
 
     // Generate QC and send
-    sample_channel * [  [ calc_coverage, read_lengths ] + send_report.when { SEND_QC_TO_GITLAB } ] +
+    sample_channel * [  [ calc_coverage, read_lengths, samtools_stats ] + send_report.when { SEND_QC_TO_GITLAB } ] +
 
     // Phase 3: family merging
     family_channel * [ 
