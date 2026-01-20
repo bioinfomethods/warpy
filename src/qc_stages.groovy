@@ -13,7 +13,7 @@ somalier_extract = {
                 -d $output.dir
                 -f $REF
                 -s $SOMALIER_SITES
-                $input.bam
+                ${input[bam_ext]}
         """
     }
 

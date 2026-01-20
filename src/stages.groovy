@@ -145,20 +145,22 @@ rename_and_merge_demux_output = {
 add_sample_read_group = {
     def SAMTOOLS = tools.SAMTOOLS
 
-    check {
+    output.dir = "align"
+
+    filter("sample_rg") {
         exec """
-            $SAMTOOLS view -H $input.bam | grep -q "^@RG"\$\'\t\'"ID:${sample}"
-        """
-    } otherwise {
-        output.dir = "align"
+            set -eo pipefail
 
-        filter("sample_rg") {
-            exec """
-                $SAMTOOLS addreplacerg -r '@RG\tID:${sample}\tSM:${sample}' -@ $threads -o $output.bam $input.bam
+            STR=\$($SAMTOOLS view -@ $threads $input.bam | 
+                awk '{for(i=12;i<=NF;i++){split(\$i,a,":"); if(a[1]!="RG") print a[1]}}' | 
+                sort -u | 
+                paste -sd',')
 
-                $SAMTOOLS index -@ $threads $output.bam
-            """
-        }
+            $SAMTOOLS view -h --keep-tag \$STR $input.bam | 
+                $SAMTOOLS addreplacerg -w -r '@RG\tID:${sample}\tSM:${sample}' -@ $threads -o $output.bam -
+
+            $SAMTOOLS index -@ $threads $output.bam
+        """, "replace_read_group"
     }
 }
 
@@ -169,13 +171,23 @@ unmap_bam = {
 
     output.dir = 'align'
 
-    def tmp_bam = "$output.dir/${sample}.no_RG.bam"
+    def tmp_bam = "$output.dir/${sample}.sample_RG.bam"
 
     transform('.bam') to('.unmap.ubam') {
         exec """
             set -eo pipefail
 
-            $SAMTOOLS view -@ $threads -h -b -x RG -x RG -x RG $input.bam | $SAMTOOLS reheader -c 'grep -v ^@RG' - > $tmp_bam
+            STR=\$($SAMTOOLS view -@ $threads $input.bam | 
+                awk '{for(i=12;i<=NF;i++){split(\$i,a,":"); if(a[1]!="RG") print a[1]}}' | 
+                sort -u | 
+                paste -sd',')
+
+            $SAMTOOLS view -h --keep-tag \$STR $input.bam | 
+                $SAMTOOLS addreplacerg -w -r '@RG\tID:${sample}\tSM:${sample}' -@ $threads -o $tmp_bam -
+        """, "replace_read_group"
+
+        exec """
+            set -eo pipefail
 
             gatk RevertSam -I $tmp_bam
                 -O $output.bam
@@ -187,7 +199,7 @@ unmap_bam = {
                 --TMP_DIR $TMPDIR
 
             rm $tmp_bam
-        """
+        """, "revert_bam"
     }
 }
 
@@ -199,6 +211,8 @@ minimap2_align = {
 
     var bam_ext : 'bam'
 
+    def cram_ext = bam_ext.replaceFirst(/bam$/,'cram')
+
     def map_platform = (lrs_platform == 'hifi') ? 'map-hifi' : 'map-ont'
     def rg_platform = (lrs_platform == 'hifi') ? 'PacBio' : 'ONT'
     def rg_lib = (lrs_platform == 'hifi') ? 'LIB_HIFI' : 'LIB_ONT'
@@ -207,22 +221,24 @@ minimap2_align = {
     
     output.dir = 'align'
 
-    def output_pass_bam = "${sample}.pass." + bam_ext
-    def output_fail_bam = "${sample}.fail." + bam_ext
+    def output_pass_cram = "${sample}.pass." + cram_ext
+    def output_fail_cram = "${sample}.fail." + cram_ext
 
-    produce(output_pass_bam, output_fail_bam) {
+    produce(output_pass_cram, output_fail_cram) {
         exec """
+            mkdir -p $output.dir/tmp
+
             $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
                 | $tools.MINIMAP2 -y -t $threads -ax $map_platform -R "@RG\\tID:${sample}\\tPL:${rg_platform}\\tPU:1\\tLB:${rg_lib}\\tSM:${sample}" $REF_MMI - 
-                | $SAMTOOLS sort -@ $threads
-                | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -o ${output.fail[bam_ext]} - )
-                | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $calling.qscore_filter' -o ${output.pass[bam_ext]} -
+                | $SAMTOOLS sort -@ $threads -T $output.dir/tmp
+                | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -C -T $REF -o ${output.fail[cram_ext]} - )
+                | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $calling.qscore_filter' -C -T $REF -o ${output.pass[cram_ext]} -
 
-            $SAMTOOLS index ${output.pass[bam_ext]}
+            $SAMTOOLS index ${output.pass[cram_ext]}
         """
     }
 
-    forward(output.pass[bam_ext])
+    forward(output.pass[cram_ext])
 }
 
 minimap2_align_fastq = {
@@ -263,22 +279,35 @@ merge_bams = {
 merge_pass_calls = {
     var bam_ext : 'bam'
 
+    def cram_ext = bam_ext.replaceFirst(/bam$/,'cram')
+
     output.dir = 'align'
 
     def output_pass_bam = "${sample}.merged.pass." + bam_ext
 
     produce(output_pass_bam) {
         exec """
-            $tools.SAMTOOLS merge ${output[bam_ext]} ${inputs.pass[bam_ext]}
+            $tools.SAMTOOLS merge ${output[bam_ext]} ${inputs.pass[cram_ext]}
             -f 
             -c 
             -p 
             --no-PG 
-            --write-index 
             --reference $REF 
             --threads $threads
 
             $tools.SAMTOOLS index -@ $threads ${output[bam_ext]}
+        """
+    }
+}
+
+zip_ref = {
+    output.dir = 'align/ref'
+
+    def ref_fasta = new File(REF).name
+
+    produce(ref_fasta + '.gz') {
+        exec """
+            bgzip -c $REF > $output.gz
         """
     }
 }
@@ -371,331 +400,6 @@ call_short_variants = {
     }
 }
 
-/*
-pileup_variants = {
-    
-    output.dir="clair3_output/pileup"
-   
-    println("Clair chunk: " + region)
-
-    def chunk = new gngs.Region(region.toString())
-    
-    // gngs.Region region = new gngs.Region(clair_chunk.toString())
-    
-    produce("${sample}_${chunk.chr}_${chunk.from}.vcf", "${sample}_${chunk.chr}_${chunk.from}.txt") {
-
-
-        uses(clair3: 1) {
-            exec """
-                set -uo pipefail
-
-                export REF_PATH=cram_cache/%2s/%2s/%s
-
-                python $tools.CLAIR3/clair3.py CallVariantsFromCffi
-                    --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/pileup
-                    --bam_fn $input.bam
-                    --bed_fn $opts.targets
-                    --call_fn $output.vcf.optional
-                    --ref_fn $REF
-                    --ctgName $chunk.chr
-                    --ctgStart $chunk.from
-                    --ctgEnd $chunk.to
-                    --platform ont 
-                    --fast_mode False
-                    --snp_min_af $calling.snp_min_af
-                    --indel_min_af $calling.indel_min_af
-                    --minMQ $calling.min_mq
-                    --minCoverage $calling.min_cov
-                    --call_snp_only False
-                    --gvcf ${calling.enable_gvcf ? "True" : "False"}
-                    --enable_long_indel False
-                    --temp_file_dir $output.dir/${sample}_${chunk.chr}_${chunk.from}_gvcf_tmp_path
-                    --pileup
-
-                touch -a $output.vcf.optional
-
-
-                echo "`date` : succesfully called variants" > $output.txt
-            """
-        }
-    }
-}
-
-aggregate_pileup_variants = {
-    
-    output.dir="variants/$sample"
-    
-    from('CONTIGS') produce("${sample}.aggregate.pileup.vcf.gz") {
-        exec """
-            set -uo pipefail
-
-            $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
-                --contigs_fn $input
-                --input_dir ${file(input1.vcf).parentFile.path}
-                --vcf_fn_prefix $sample
-                --output_fn $output.vcf.gz.prefix
-                --sampleName $sample
-                --print_ref_calls ${calling.enable_gvcf ? "True" : "False"}
-                --ref_fn $REF
-                --cmd_fn $output.dir/tmp/CMD
-
-            if [ "\$( bgzip -@ $threads -fdc $output.vcf.gz | grep -v '#' | wc -l )" -eq 0 ]; 
-            then echo "[INFO] Exit in pileup variant calling"; exit 1; fi
-
-            bgzip -@ $threads -fdc $output.vcf.gz |
-                $tools.PYPY $tools.CLAIR3/clair3.py SelectQual --var_pct_phasing $calling.phasing_pct --phase --output_fn .
-        """
-    }
-}
-
-
-select_het_snps = {
-
-    branch.dir="split_folder/$sample"
-    
-    transform('.vcf.gz') to('.het_snps.vcf.gz') {
-        exec """
-            set -uo pipefail
-
-            $tools.PYPY $tools.CLAIR3/clair3.py SelectHetSnp
-                --vcf_fn $input.vcf.gz
-                --split_folder $output.dir
-                --ctgName $chr
-
-            bgzip -c $output.dir/${chr}.vcf > $output.vcf.gz
-
-            tabix $output.vcf.gz
-        """
-    }
-}
-
-
-
-phase_contig = {
-
-    transform('.vcf.gz') to('.phased.vcf.gz') {
-
-        def tmp_vcf = "${input.vcf.gz.prefix.prefix}.tmp.vcf"
-        exec """
-                set -uo pipefail
-
-                echo "Using longphase for phasing"
-
-                bgzip -@ $threads -dc $input.vcf.gz > $tmp_vcf  
-
-                $tools.LONGPHASE phase 
-                    --ont 
-                    -o ${output.prefix.prefix}
-                    -s $tmp_vcf
-                    -b $input.bam 
-                    -r $REF
-                    -t $threads
-
-                rm -f $output
-
-                bgzip $output.prefix
-
-                tabix -f -p vcf $output
-         """
-    }
-}
-
-
-get_qual_filter = {
-    
-    doc """
-        Full alignment calling is expensive, so only a configurable proportion of variants are selected for it.
-        The proportion is fixed, but to make it easier to implement downstream, this step determines the appropriate
-        qual score threshold to use to get the top X% of low quality variants in subsequent steps.
-        """
-    
-    output.dir =  "variants/$sample"
-    
-    exec """
-        set -uo pipefail
-
-        echo "[INFO] 5/7 Determine qual score cutoffs to to select fixed proportion of candidates for full-alignment calling"
-
-        bgzip -fdc $input.vcf.gz |
-        $tools.PYPY $tools.CLAIR3/clair3.py SelectQual
-                --output_fn $output.dir
-                --var_pct_full $calling.var_pct_full
-                --ref_pct_full $calling.ref_pct_full
-                --platform ont 
-
-        mv $output.dir/qual $output.qual.txt
-    """
-}
-
-create_candidates = {
-    
-    doc """
-        This creates BED files as candidate_bed/<ctg>.0_14 with candidates
-        along with a file the FULL_ALN_FILE_<ctg> listing all of the BED
-        files.  All we really want are the BEDs, the file of filenames is
-        used for the purposes of parallel in the original workflow.
-
-        https://github.com/HKU-BAL/Clair3/blob/329d09b39c12b6d8d9097aeb1fe9ec740b9334f6/scripts/clair3.sh#L218
-    """
-    
-    output.dir = branch.dir + "/clair3_output/full_aln_candidates/$sample/" + chr
-
-    from('vcf.gz') produce('*.bed') {
-        exec """
-            set -uo pipefail
-
-            $tools.PYPY $tools.CLAIR3/clair3.py SelectCandidates
-                --pileup_vcf_fn $input.vcf.gz
-                --split_folder $output.dir
-                --ref_fn $REF
-                --var_pct_full $calling.var_pct_full
-                --ref_pct_full $calling.ref_pct_full
-                --platform ont
-                --ctgName $chr
-
-            rm -f $output.dir/*.bed
-
-            src_bed_file_name_pattern="^$output.dir/$chr.+\$"
-
-            for i in $output.dir/*.*;
-            do 
-                if [[ \$i =~ \$src_bed_file_name_pattern ]]; then
-                    mv -v \$i \${i}.bed;
-                fi
-            done
-        """
-    }
-}
-
-evaluate_candidates = {
-
-    def bed_prefix = file(input.bed).name.replaceAll('.bed$','')
-
-    output.dir = "variants/full_alignments"
-    
-    produce("${sample}.${bed_prefix}.full_alignment.vcf") {
-        exec """
-            set -uo pipefail
-
-            echo "[INFO] 6/7 Call low-quality variants using full-alignment model"
-
-            python $tools.CLAIR3/clair3.py CallVariantsFromCffi
-                --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/full_alignment
-                --bam_fn $input.bam 
-                --call_fn $output.vcf
-                --sampleName ${sample}
-                --ref_fn $REF
-                --full_aln_regions $input.bed
-                --ctgName $chr
-                --add_indel_length
-                --gvcf ${calling.enable_gvcf?"True":"False"}
-                --minMQ $calling.min_mq
-                --minCoverage $calling.min_cov
-                --snp_min_af $calling.snp_min_af
-                --indel_min_af $calling.indel_min_af
-                --platform ont 
-                --phased_vcf_fn $input.vcf.gz
-        """
-    }
-}
-
-aggregate_full_align_variants = {
-    
-    output.dir="variants/$sample"
-    
-    from('CONTIGS', '*.full_alignment.vcf') produce("${sample}.full_alignment.vcf.gz"){
-        exec """
-
-            echo "First input VCF is $input1.vcf"
-
-            $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
-                --input_dir ${file(input1.vcf).parentFile.path}
-                --output_fn $output.vcf.gz.prefix
-                --vcf_fn_prefix $sample
-                --sampleName $sample
-                --ref_fn $REF
-                --contigs_fn $input1
-                --print_ref_calls True
-                --cmd_fn $output.dir/tmp/CMD
-
-            if [ "\$( bgzip -fdc $output.vcf.gz | grep -v '#' | wc -l )" -eq 0 ]; then
-                echo "[INFO] Exit in full-alignment variant calling";
-                exit 0;
-            fi
-        """
-    }
-}
-
-merge_pileup_and_full_vars = {
-    
-    output.dir = "variants"
-    
-    List output_files = ["${sample}.merged_methods.${chr}.vcf"]
-    if(calling.enable_gvcf) {
-        output_files.add "$output.dir/gvcf/${sample}.merged_methods.${chr}.gvcf"
-    }
-
-    produce(output_files) {
-        
-        def gvcfFlags = ""
-        if(calling.enable_gvcf) {
-            gvcfFlags = "--print_ref_calls True --gvcf True --gvcf_fn $output.gvcf" 
-        }
-        
-        exec """
-            echo "[INFO] 7/7 Merge pileup VCF and full-alignment VCF"
-
-            mkdir -p $output.dir/gvcf
-
-            $tools.PYPY $tools.CLAIR3/clair3.py MergeVcf
-                --pileup_vcf_fn $input.aggregate.pileup.vcf.gz
-                --bed_fn_prefix candidates/$chr
-                --full_alignment_vcf_fn $input.full_alignment.vcf.gz
-                --output_fn $output.vcf
-                --platform ont $gvcfFlags
-                --haploid_precise False
-                --haploid_sensitive False
-                --non_var_gvcf_fn ${sample}-non_var.gvcf
-                --ref_fn $REF
-                --ctgName $chr
-        """
-    }
-}
-
-aggregate_all_variants = {
-    
-    output.dir = "variants/${sample}"
-
-    from("CONTIGS") produce("${sample}.wf_snp.vcf.gz") {
-        exec """
-
-            rm -rf $output.dir/merge_output
-
-            mkdir $output.dir/merge_output
-
-            for i in $inputs.vcf.gz ; do cp \$i $output.dir/merge_output ; done 
-
-            $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
-                --input_dir variants
-                --vcf_fn_prefix $sample
-                --output_fn $output.vcf.gz.prefix
-                --sampleName $sample
-                --ref_fn $REF
-                --print_ref_calls True
-                --contigs_fn $input1
-                --cmd_fn $output.dir/tmp/CMD
-
-            if [ "\$( bgzip -fdc $output.vcf.gz | grep -v '#' | wc -l )" -eq 0 ]; then
-                echo "[INFO] Exit in all contigs variant merging : no variants?";
-                exit 0;
-            fi
-
-            echo "[INFO] Finish calling, output file: $output.vcf.gz"
-        """
-    }
-}
-*/
-
 normalize_gvcf = {
 
     doc "split VCF lines so that each line contains one and only one variant, and left-normalize all VCF lines"
@@ -766,20 +470,25 @@ phase_variants = {
 haplotag_bam = {
     var bam_ext : 'bam'
 
+    def cram_ext = bam_ext.replaceFirst(/bam$/,'cram')
+
     output.dir = "align"
 
-    def output_bam_ext = 'haplotagged.' + bam_ext
+    def output_cram_ext = 'haplotagged.' + cram_ext
 
-    transform(bam_ext) to(output_bam_ext) {
+    transform(bam_ext) to(output_cram_ext) {
         exec """
+            set -o pipefail
+
             $tools.LONGPHASE haplotag 
             -r $REF
             -s $input.norm.phased.vcf.gz
             -b ${input[bam_ext]}
+            --cram
             -t $threads 
-            -o $output.dir/${file(output[bam_ext].prefix).name}
+            -o $output.dir/${file(output[cram_ext].prefix).name}
 
-            samtools index ${output[bam_ext]}
+            samtools index ${output[cram_ext]}
         """
     }
 }

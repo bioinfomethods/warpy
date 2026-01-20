@@ -3,21 +3,22 @@
 filterBam = {
     var bam_ext: 'bam'
 
+    def cram_ext = bam_ext.replaceFirst(/bam$/,'cram')
+
     output.dir = "align"
     
-    def output_bam_ext = 'filtered.' + bam_ext
+    def output_cram_ext = 'filtered.' + cram_ext
 
-    transform(bam_ext) to(output_bam_ext) {
+    transform(bam_ext) to(output_cram_ext) {
         exec """
             samtools view -@ $threads 
                 ${input[bam_ext]}
                 -F 260 
-                -o ${output[bam_ext]}
+                -C
+                -o ${output[cram_ext]}
                 --write-index 
                 --reference $REF
         """
-
-        sample_bams.get(sample, []).add(output[bam_ext].toString())
     }
 }
 
@@ -44,7 +45,7 @@ sniffles2 = {
                 --reference $REF
                 --output-rnames
                 --cluster-merge-pos $calling.cluster_merge_pos
-                --input $input.bam
+                --input $input.cram
                 --allow-overwrite
                 --tandem-repeats ${calling.tr_bed} $sniffles_args
                 --vcf ${output.vcf.prefix}.tmp.vcf
@@ -72,7 +73,7 @@ sniffles2_for_trios = {
                 --output-rnames
                 --allow-overwrite
                 --cluster-merge-pos $calling.cluster_merge_pos
-                --input $input.bam
+                --input $input.cram
                 --tandem-repeats ${calling.tr_bed} $sniffles_args
                 --snf $output.snf
         """
@@ -133,14 +134,6 @@ jasmine_merge = {
     def family_samples = meta*.value.grep { it.family_id == family }
     def family_sample_identifiers = family_samples.collect { it.identifier }
 
-    def family_bams = sample_bams
-      .findAll { k, v -> k in family_sample_identifiers }
-      .sort()
-      .collect { k, v -> v }
-      .flatten()
-      .unique()
-      .join(' ')
-
     def family_vcfs = sample_sv_vcfs
       .findAll { k, v -> k.split("#")[0] == sv_tool && k.split("#")[1] in family_sample_identifiers }
       .sort()
@@ -155,8 +148,6 @@ jasmine_merge = {
         exec """
             set -o pipefail
 
-            for bam in ${family_bams}; do echo \$bam; done > ${output.dir}/bam.listings.txt
-
             for vcf in ${family_vcfs}; do echo \$vcf; done > ${output.dir}/vcf.listings.txt
 
             jasmine 
@@ -164,7 +155,6 @@ jasmine_merge = {
                 out_dir=$output.dir 
                 genome_file=$REF 
                 file_list=${output.dir}/vcf.listings.txt 
-                bam_list=${output.dir}/bam.listings.txt 
                 out_file=$output.prefix
                 min_support=$jasmine_sv.min_support 
                 --mark_specific 
@@ -277,7 +267,7 @@ cutesv = {
 	            --diff_ratio_merging_DEL $diff_ratio_merging_del
                 --min_support $cutesv_params.min_support
                 --genotype
-                $input.bam
+                $input.cram
                 $REF
                 ${branch.dir}/${sample}.cutesv.tmp.vcf
                 $cutesv_tmp_dir
