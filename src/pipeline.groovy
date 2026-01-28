@@ -78,7 +78,10 @@ input_data_type = input_files.collectEntries { sam, files ->
     }
 }
 
-lrs_bam_ext = (input_data_type.values()[0] == 'bam' && opts.remap)? 'remapped.bam' : 'bam'
+lrs_bam_ext = 'bam'
+if (input_data_type.values().any { it == 'bam' }) {
+    lrs_bam_ext = opts.remap ? 'remapped.bam' : 'sample_rg.bam'
+}
 
 // to make pipeline generic to work for either fast5 or blow5,
 // define virtual file extentions 'x5' that can map to either
@@ -158,7 +161,6 @@ meta.each { if(!it.value.family_id) it.value.family_id = it.value.identifier }
 family_channel = channel(meta*.value.family_id).named('family')
    
 sample_vcfs = Collections.synchronizedMap([:])
-sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 sample_sv_vcfs = Collections.synchronizedMap([:])
 sample_somaliers = Collections.synchronizedList([])
@@ -283,24 +285,12 @@ run(input_files*.value.flatten()) {
 
     // Phase 2: single sample variant calling
     [
-        qc: sample_channel * [ somalier_extract ],
+        qc: sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
 
          snp_calling : sample_channel * [ 
             call_short_variants.using(bam_ext: lrs_bam_ext) + normalize_gvcf + 
             phase_variants.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf + check_variant_fraction +
             haplotag_bam.using(bam_ext: lrs_bam_ext)
-            /*
-             partitions   * [ pileup_variants ] + aggregate_pileup_variants +
-             [ 
-                    get_qual_filter,
-                    contigs * [
-                        select_het_snps + phase_contig,
-                        create_candidates + '%.bed' * [ evaluate_candidates ] 
-                    ] 
-                    + aggregate_full_align_variants
-             ] +
-                contigs * [ merge_pileup_and_full_vars ] + aggregate_all_variants + normalize_vcf,
-            */
          ],
 
          sv_calling: sample_channel * [ 
@@ -325,5 +315,5 @@ run(input_files*.value.flatten()) {
         combine_family_vcfs
     ] + 
 
-    somalier_relate
+    [ somalier_relate, zip_ref ]
 }
