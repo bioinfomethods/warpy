@@ -4,6 +4,15 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WARPY_BASE="$( cd "$SCRIPT_DIR/.." && pwd )"
 
+# Detect environment
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    ENV="mac_dev"
+elif command -v sbatch &> /dev/null; then
+    ENV="vcgs_mk4"
+else
+    ENV="ont_server"
+fi
+
 function usage() {
       echo "Usage: $0 [options]"
       echo
@@ -70,5 +79,5 @@ cd $BATCH_DIR
 
 # TODO: ADJUST SEX OF SAMPLES in samples.yaml
 
-bpipe run -p ANALYSIS_QUAL=hac --env ont_server $WARPY_BASE/src/pipeline.groovy -targets $WARPY_BASE/designs/WGS_REFFLAT_10_NOALT_38/WGS_REFFLAT_10_NOALT_38.bed -samples samples.yaml
+bpipe run -p ANALYSIS_QUAL=hac --env $ENV $WARPY_BASE/src/pipeline.groovy -targets $WARPY_BASE/designs/WGS_REFFLAT_10_NOALT_38/WGS_REFFLAT_10_NOALT_38.bed -samples samples.yaml
 "
