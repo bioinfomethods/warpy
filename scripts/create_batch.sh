@@ -5,12 +5,10 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 WARPY_BASE="$( cd "$SCRIPT_DIR/.." && pwd )"
 
 # Detect environment
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    ENV="mac_dev"
-elif command -v sbatch &> /dev/null; then
-    ENV="vcgs_mk4"
+if [ -n "$BPIPE_DEFAULT_ENVIRONMENT" ]; then
+    ENV="$BPIPE_DEFAULT_ENVIRONMENT"
 else
-    ENV="ont_server"
+    ENV="<environment>"
 fi
 
 function usage() {
