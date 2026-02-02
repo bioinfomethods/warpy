@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Determine the script's directory and warpy base directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+WARPY_BASE="$( cd "$SCRIPT_DIR/.." && pwd )"
+
 function usage() {
       echo "Usage: $0 [options]"
       echo
@@ -34,14 +38,13 @@ then
     usage
 fi
 
-PREFIX=.
-
-if [ -e batches ];
+# Set batch directory relative to script location
+if [ -e "$SCRIPT_DIR/batches" ];
 then
-	PREFIX=./batches
+	BATCH_DIR=$SCRIPT_DIR/batches/${sample_id}
+else
+	BATCH_DIR=$SCRIPT_DIR/${sample_id}
 fi
-
-BATCH_DIR=$PREFIX/${sample_id}
 
 mkdir $BATCH_DIR
 
@@ -67,5 +70,5 @@ cd $BATCH_DIR
 
 # TODO: ADJUST SEX OF SAMPLES in samples.yaml
 
-bpipe run -p ANALYSIS_QUAL=hac --env ont_server /storage/warpy/src/pipeline.groovy -targets /storage/warpy/designs/WGS_REFFLAT_10_NOALT_38/WGS_REFFLAT_10_NOALT_38.bed -samples samples.yaml
+bpipe run -p ANALYSIS_QUAL=hac --env ont_server $WARPY_BASE/src/pipeline.groovy -targets $WARPY_BASE/designs/WGS_REFFLAT_10_NOALT_38/WGS_REFFLAT_10_NOALT_38.bed -samples samples.yaml
 "
