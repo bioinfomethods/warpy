@@ -54,13 +54,11 @@ then
     usage
 fi
 
-# Set batch directory relative to script location
-if [ -e "$SCRIPT_DIR/batches" ];
-then
-	BATCH_DIR=$SCRIPT_DIR/batches/${sample_id}
-else
-	BATCH_DIR=$SCRIPT_DIR/${sample_id}
-fi
+# Set batch directory at warpy base level
+BATCH_DIR=$WARPY_BASE/batches/${sample_id}
+
+# Create batches directory if it doesn't exist
+mkdir -p "$WARPY_BASE/batches"
 
 mkdir $BATCH_DIR
 
