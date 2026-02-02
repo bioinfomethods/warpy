@@ -7,8 +7,12 @@ WARPY_BASE="$( cd "$SCRIPT_DIR/.." && pwd )"
 # Detect environment
 if [ -n "$BPIPE_DEFAULT_ENVIRONMENT" ]; then
     ENV="$BPIPE_DEFAULT_ENVIRONMENT"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    ENV="mac_dev"
+elif command -v sbatch &> /dev/null; then
+    ENV="vcgs_mk4"
 else
-    ENV="<environment>"
+    ENV="ont_server"
 fi
 
 function usage() {
