@@ -26,7 +26,12 @@ while getopts "s:d:h" arg; do
       export sample_id=$OPTARG
       ;;
     d) # data
-      export data_path=$OPTARG
+      # Convert relative path to absolute
+      if [[ "$OPTARG" = /* ]]; then
+        export data_path=$OPTARG
+      else
+        export data_path="$(cd "$(dirname "$OPTARG")" && pwd)/$(basename "$OPTARG")"
+      fi
       ;;
      h | *) # Display help.
          usage
