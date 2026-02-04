@@ -56,12 +56,14 @@ read_lengths = {
 
     output.dir = "qc"
 
-    var sample : file(input.bam).name.tokenize('.')[0]
+    var sample : file(input.bam).name.tokenize('.')[0],
+        TARGET_BED : false
 
+    def targetArg = TARGET_BED ? "-bed $TARGET_BED" : ""
     produce("${sample}.lengths.png", "${sample}.lengthsgb.png", "${sample}.n50.txt") {
 		exec """
 			$tools.GROOVY -cp $tools.GNGS/groovy-ngs-utils.jar $BASE/scripts/read_lengths.groovy
-				-bam $input.bam
+				-bam $input.bam $targetArg
 				-prefix $output.prefix.prefix
 		"""
     }
