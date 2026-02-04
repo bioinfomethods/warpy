@@ -427,6 +427,8 @@ merge_phased_contigs = {
     output.dir = "variants"
 
     exec """
+        set -o pipefail
+
         bcftools concat $inputs.phased.vcf.gz | bgzip -c > $output.phased.merge.vcf.gz
     """
 }
