@@ -34,6 +34,7 @@ do
     esac
 done
 
+
 if [ ${#VCF_FILES[@]} -eq 0 ]; then
     echo "No VCF file specified. Program exits." >&2
     exit 0
@@ -47,6 +48,9 @@ fi
 if [ $THREADS -le 1 ]; then
     THREADS=1
 fi
+
+set -e
+set -o pipefail
 
 SORT_CMD="awk '/^#/ { print; next } { exit }' ${VCF_FILES[0]}; cat ${VCF_FILES[*]} | grep -v \"^#\" | sort -k1,1d -k2,2n"
 
