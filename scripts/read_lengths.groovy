@@ -51,6 +51,8 @@ regions.each { region ->
 	}
 }
 
+log.info "Sampled ${lens.size()} length values from ${regions.numberOfRanges} regions"
+
 // Raw read length distribution
 p = new Plot(title: 'Read Length Distribution', xLabel: 'Read Length', yLabel: 'Frequency') << 
 	new Density.Area(data: lens.grep { it < 30000 } )
