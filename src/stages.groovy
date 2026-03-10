@@ -145,6 +145,8 @@ rename_and_merge_demux_output = {
 add_sample_read_group = {
     def SAMTOOLS = tools.SAMTOOLS
 
+    def tags_to_remove = "RG,tp,cm,s1,s2,NM,MD,AS,SA,ms,nn,ts,cg,cs,dv,de,rl"
+
     output.dir = "align"
 
     filter("sample_rg") {
@@ -152,7 +154,14 @@ add_sample_read_group = {
             set -eo pipefail
 
             STR=\$($SAMTOOLS view -@ $threads $input.bam | 
-                awk '{for(i=12;i<=NF;i++){split(\$i,a,":"); if(a[1]!="RG") print a[1]}}' | 
+                awk -v tag_str="$tags_to_remove" 'BEGIN {
+                    n = split(tag_str, tags, ",");
+                    for (i=1; i<=n; i++) tag_list[tags[i]] = 1
+                }
+                {
+                    for(i=12;i<=NF;i++){split(\$i,a,":");
+                    if (!(a[1] in tag_list)) print a[1]}
+                }' | 
                 sort -u | 
                 paste -sd',')
 
@@ -169,6 +178,8 @@ unmap_bam = {
     
     def SAMTOOLS = tools.SAMTOOLS
 
+    def tags_to_remove = "RG,tp,cm,s1,s2,NM,MD,AS,SA,ms,nn,ts,cg,cs,dv,de,rl"
+
     output.dir = 'align'
 
     def tmp_bam = "$output.dir/${sample}.sample_RG.bam"
@@ -178,7 +189,14 @@ unmap_bam = {
             set -eo pipefail
 
             STR=\$($SAMTOOLS view -@ $threads $input.bam | 
-                awk '{for(i=12;i<=NF;i++){split(\$i,a,":"); if(a[1]!="RG") print a[1]}}' | 
+                awk -v tag_str="$tags_to_remove" 'BEGIN {
+                    n = split(tag_str, tags, ",");
+                    for (i=1; i<=n; i++) tag_list[tags[i]] = 1
+                }
+                {
+                    for(i=12;i<=NF;i++){split(\$i,a,":");
+                    if (!(a[1] in tag_list)) print a[1]}
+                }' | 
                 sort -u | 
                 paste -sd',')
 
