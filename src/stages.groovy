@@ -149,7 +149,7 @@ add_sample_read_group = {
 
     output.dir = "align"
 
-    filter("sample_rg") {
+    transform('bam') to('sample_rg.bam', 'sample_rg.bam.md5') {
         exec """
             set -eo pipefail
 
@@ -169,6 +169,8 @@ add_sample_read_group = {
                 $SAMTOOLS addreplacerg -w -r '@RG\tID:${sample}\tSM:${sample}' -@ $threads -o $output.bam -
 
             $SAMTOOLS index -@ $threads $output.bam
+
+            md5sum $output.bam > $output.bam.md5
         """, "replace_read_group"
     }
 }
@@ -303,7 +305,7 @@ merge_pass_calls = {
 
     def output_pass_bam = "${sample}.merged.pass." + bam_ext
 
-    produce(output_pass_bam) {
+    produce(output_pass_bam, output_pass_bam + '.md5') {
         exec """
             $tools.SAMTOOLS merge ${output[bam_ext]} ${inputs.pass[cram_ext]}
             -f 
@@ -314,6 +316,8 @@ merge_pass_calls = {
             --threads $threads
 
             $tools.SAMTOOLS index -@ $threads ${output[bam_ext]}
+
+            md5sum ${output[bam_ext]} > ${output[bam_ext]}.md5
         """
     }
 }
@@ -437,13 +441,15 @@ normalize_gvcf = {
 gvcf_to_vcf = {
     output.dir = "variants"
 
-    transform('g.vcf.gz') to ('vcf.gz') {
+    transform('g.vcf.gz') to ('vcf.gz', 'vcf.gz.md5') {
         exec """
             set -o pipefail
 
             bcftools view -i 'TYPE="snp" || TYPE="indel"' $input.g.vcf.gz | bgzip -c > $output.vcf.gz
 
             tabix -p vcf $output.vcf.gz
+
+            md5sum $output.vcf.gz > $output.vcf.gz.md5
         """
     }
 }
@@ -531,7 +537,7 @@ combine_family_vcfs = {
     
     println "Inputs are: " + family_vcfs*.value.flatten()
     
-    from(family_vcfs*.value.flatten()) produce("${family}.family.vcf.gz") {
+    from(family_vcfs*.value.flatten()) produce("${family}.family.vcf.gz", "${family}.family.vcf.gz.md5") {
         exec """
             set -o pipefail
 
@@ -542,6 +548,8 @@ combine_family_vcfs = {
                 bgzip -c > $output.vcf.gz
 
             tabix -p vcf $output.vcf.gz
+
+            md5sum $output.vcf.gz > $output.vcf.gz.md5
         """
     }
 }

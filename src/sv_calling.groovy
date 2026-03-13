@@ -496,7 +496,7 @@ strvctvre_annotate = {
 
     def tmpname = UUID.randomUUID().toString() + ".vcf"
 
-    transform('vcf.gz') to('strvctvre.vcf.bgz') {
+    transform('vcf.gz') to('strvctvre.vcf.bgz', 'strvctvre.vcf.bgz.md5') {
         exec """
             gunzip -c $input 
             | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/establish_end_convention.groovy > $tmpname
@@ -512,6 +512,8 @@ strvctvre_annotate = {
             tabix -p vcf $output.vcf.bgz
 
             rm -rf ${tmpname} ${tmpname}.bgz
+
+            md5sum $output.vcf.bgz > $output.vcf.bgz.md5
         """, "strvctvre_annotate"
     }
 }
