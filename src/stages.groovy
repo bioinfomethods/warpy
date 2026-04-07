@@ -153,6 +153,8 @@ add_sample_read_group = {
         exec """
             set -eo pipefail
 
+            export TMPDIR=$TMPDIR
+
             STR=\$($SAMTOOLS view -@ $threads $input.bam | 
                 awk -v tag_str="$tags_to_remove" 'BEGIN {
                     n = split(tag_str, tags, ",");
@@ -189,6 +191,8 @@ unmap_bam = {
     transform('.bam') to('.unmap.ubam') {
         exec """
             set -eo pipefail
+
+            export TMPDIR=$TMPDIR
 
             STR=\$($SAMTOOLS view -@ $threads $input.bam | 
                 awk -v tag_str="$tags_to_remove" 'BEGIN {

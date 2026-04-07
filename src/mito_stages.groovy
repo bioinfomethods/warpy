@@ -17,6 +17,8 @@ run_clairs_to = {
         def output_prefix = "${output.prefix.prefix}".replaceFirst("^${sample_output_dir}", "")
 
         exec """
+            export TMPDIR=$TMPDIR
+
             mkdir -p ${output.dir.prefix}
 
             /opt/bin/run_clairs_to \
