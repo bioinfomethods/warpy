@@ -445,7 +445,7 @@ normalize_gvcf = {
 gvcf_to_vcf = {
     output.dir = "variants"
 
-    transform('g.vcf.gz') to ('vcf.gz', 'vcf.gz.md5') {
+    transform('norm.phased.g.vcf.gz') to ('norm.phased.vcf.gz', 'norm.phased.vcf.gz.md5') {
         exec """
             set -o pipefail
 
