@@ -145,7 +145,7 @@ rename_and_merge_demux_output = {
 add_sample_read_group = {
     def SAMTOOLS = tools.SAMTOOLS
 
-    def tags_to_remove = "RG,tp,cm,s1,s2,NM,MD,AS,SA,ms,nn,ts,cg,cs,dv,de,rl"
+    def tags_to_remove = "RG"
 
     output.dir = "align"
 
