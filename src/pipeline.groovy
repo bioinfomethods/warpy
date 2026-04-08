@@ -315,5 +315,5 @@ run(input_files*.value.flatten()) {
         combine_family_vcfs
     ] + 
 
-    [ somalier_relate, zip_ref ]
+    [ somalier_relate, zip_ref.when { opts.remap } ]
 }
