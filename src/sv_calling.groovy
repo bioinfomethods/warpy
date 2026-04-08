@@ -46,8 +46,7 @@ sniffles2 = {
                 --output-rnames
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.cram
-                --allow-overwrite
-                --tandem-repeats ${calling.tr_bed} $sniffles_args
+                --allow-overwrite $sniffles_args
                 --vcf ${output.vcf.prefix}.tmp.vcf
 
             sed '/.:0:0:0:NULL/d' ${output.vcf.prefix}.tmp.vcf | 
@@ -73,8 +72,7 @@ sniffles2_for_trios = {
                 --output-rnames
                 --allow-overwrite
                 --cluster-merge-pos $calling.cluster_merge_pos
-                --input $input.cram
-                --tandem-repeats ${calling.tr_bed} $sniffles_args
+                --input $input.cram $sniffles_args
                 --snf $output.snf
         """
 

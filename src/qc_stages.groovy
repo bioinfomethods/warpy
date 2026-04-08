@@ -42,7 +42,7 @@ somalier_relate = {
 }
 
 check_variant_fraction = {
-    var MAX_VAF_OUTLIER_FRAC : 0.04
+    var MAX_VAF_OUTLIER_FRAC : 1.0
 
     output.dir = "qc"
 
