@@ -10,6 +10,7 @@ options {
     remap 'Remap the input BAM file', args:0, required: false
     methylation 'Produce methylation analysis - ONT only', args: 1, required: false
     no_mito 'Skip mito variant calling', args:0, required: false
+    sv 'Perform structural variant calling only', args:0, required: false
 }
 
 load 'stages.groovy'
@@ -49,7 +50,7 @@ println("Flattened: " + input_files*.value.flatten())
 def mito_samples = []
 def maternal_samples = [:]
 
-if (!opts.no_mito) {
+if (!opts.no_mito && !opts.sv) {
     def femaleSampleIds = meta.findAll { it.value.sex == "female" }
             .collect { it.key }.toSet()
     def parentSampleIds = meta.findAll { it.value.parents != null && it.value.parents.size() > 0 }
@@ -116,7 +117,7 @@ else {
 if(clair3_model.clair3_model_name == '-') 
     throw new bpipe.PipelineError("No suitable clair3 model could be found: $clair3_model.clair3_nomodel_reason")
 
-if (!opts.no_mito) {
+if (!opts.no_mito && !opts.sv) {
     def clairs_to_model_map_file = "$BASE/data/clairs_to_models.tsv"
     def clairs_to_model_map = new graxxia.TSV(clairs_to_model_map_file).toListMap()
 
@@ -173,7 +174,7 @@ init = {
     println "\nUsing clair3 model: $clair3_model"
     // println "\nUsing REF_MMI: $REF_MMI"
     
-    if (!opts.no_mito) {
+    if (!opts.no_mito && !opts.sv) {
         println "\nUsing ClairS-TO model: $clairs_to_model"
     }
     
@@ -288,9 +289,9 @@ run(input_files*.value.flatten()) {
         qc: sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
 
          snp_calling : sample_channel * [ 
-            call_short_variants.using(bam_ext: lrs_bam_ext) + normalize_gvcf + 
-            phase_variants.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf + check_variant_fraction +
-            haplotag_bam.using(bam_ext: lrs_bam_ext)
+            call_short_variants.when{ !opts.sv }.using(bam_ext: lrs_bam_ext) + normalize_gvcf.when { !opts.sv } + 
+            phase_variants.when { !opts.sv }.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf.when { !opts.sv } + 
+            check_variant_fraction.when { !opts.sv } + haplotag_bam.when { !opts.sv }.using(bam_ext: lrs_bam_ext)
          ],
 
          sv_calling: sample_channel * [ 
@@ -302,7 +303,8 @@ run(input_files*.value.flatten()) {
 
          methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" } ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ],
+         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.when { !opts.sv }.using(bam_ext: lrs_bam_ext) + 
+             annotate_repeat_expansions.when { !opts.sv } ] + merge_str_tsv.when { !opts.sv } + merge_str_vcf.when { !opts.sv } ],
 
          mito_calling: mito_sample_channel * [ call_mito_variants ] + 
             mito_sample_channel * [ run_mitoreport.using(maternal_ids: maternal_samples).when{ branch.sample in maternal_samples },
@@ -312,8 +314,8 @@ run(input_files*.value.flatten()) {
     // Phase 3: family merging
     family_channel * [ 
         init_family + merge_family.when { branch.family_size > 1 } + annotate_singleton_sv.when { branch.family_size == 1 },
-        combine_family_vcfs
+        combine_family_vcfs.when { !opts.sv }
     ] + 
 
-    [ somalier_relate, zip_ref ]
+    [ somalier_relate, zip_ref.when { opts.remap } ]
 }

@@ -17,6 +17,8 @@ run_clairs_to = {
         def output_prefix = "${output.prefix.prefix}".replaceFirst("^${sample_output_dir}", "")
 
         exec """
+            export TMPDIR=$TMPDIR
+
             mkdir -p ${output.dir.prefix}
 
             /opt/bin/run_clairs_to \
@@ -76,6 +78,7 @@ annotate_mito_variants = {
                 --hgvs \
                 --no_stats \
                 --dir $VEP_CACHE \
+                --fasta $VEP_CACHE/homo_sapiens/110_GRCh38/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz \
                 --offline \
                 --vcf \
                 -i $input.vcf \

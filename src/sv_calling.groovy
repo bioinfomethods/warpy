@@ -46,8 +46,7 @@ sniffles2 = {
                 --output-rnames
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.cram
-                --allow-overwrite
-                --tandem-repeats ${calling.tr_bed} $sniffles_args
+                --allow-overwrite $sniffles_args
                 --vcf ${output.vcf.prefix}.tmp.vcf
 
             sed '/.:0:0:0:NULL/d' ${output.vcf.prefix}.tmp.vcf | 
@@ -73,8 +72,7 @@ sniffles2_for_trios = {
                 --output-rnames
                 --allow-overwrite
                 --cluster-merge-pos $calling.cluster_merge_pos
-                --input $input.cram
-                --tandem-repeats ${calling.tr_bed} $sniffles_args
+                --input $input.cram $sniffles_args
                 --snf $output.snf
         """
 
@@ -496,7 +494,7 @@ strvctvre_annotate = {
 
     def tmpname = UUID.randomUUID().toString() + ".vcf"
 
-    transform('vcf.gz') to('strvctvre.vcf.bgz') {
+    transform('vcf.gz') to('strvctvre.vcf.bgz', 'strvctvre.vcf.bgz.md5') {
         exec """
             gunzip -c $input 
             | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/establish_end_convention.groovy > $tmpname
@@ -512,6 +510,8 @@ strvctvre_annotate = {
             tabix -p vcf $output.vcf.bgz
 
             rm -rf ${tmpname} ${tmpname}.bgz
+
+            md5sum $output.vcf.bgz > $output.vcf.bgz.md5
         """, "strvctvre_annotate"
     }
 }
