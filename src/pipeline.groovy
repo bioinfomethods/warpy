@@ -165,7 +165,7 @@ sample_vcfs = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
 sample_sv_vcfs = Collections.synchronizedMap([:])
 sample_somaliers = Collections.synchronizedList([])
-mito_sample_bams = Collections.synchronizedMap([:])
+sample_processed_bams = Collections.synchronizedMap([:])
 mito_sample_vcfs = Collections.synchronizedMap([:])
 
 init = {
@@ -215,10 +215,12 @@ remap_bam = segment {
     unmap_bam + align_ubam
 }
 
-forward_sample_bam = {
-    
-    // println "Forwarding bam file $input.bam for sample $sample"
-    forward input.bam
+register_processed_bam = {
+    sample_processed_bams.get(sample, []).add(input.bam.toString())
+}
+
+forward_processed_bam = {
+    forward sample_processed_bams[sample]
 }
 
 annotate_sv = segment {
@@ -265,7 +267,7 @@ annotate_singleton_sv = segment {
 }
 
 call_mito_variants = segment {
-    forward_mito_sample_bam + run_clairs_to.using(bam_ext: lrs_bam_ext) + annotate_mito_variants
+    forward_processed_bam + run_clairs_to.using(bam_ext: lrs_bam_ext) + annotate_mito_variants
 }
 
 run(input_files*.value.flatten()) {
@@ -281,7 +283,7 @@ run(input_files*.value.flatten()) {
             basecall_align_reads.when { input_data_type[sample] == 'x5' } + 
             remap_bam.when { input_data_type[sample] == 'bam' && opts.remap } + 
             add_sample_read_group.when { input_data_type[sample] == 'bam' && !opts.remap } +
-            align_ubam.when { input_data_type[sample] == 'ubam' } + register_mito_bam + read_stats 
+            align_ubam.when { input_data_type[sample] == 'ubam' } + register_processed_bam + read_stats
         ] +
 
     // Phase 2: single sample variant calling
@@ -289,22 +291,29 @@ run(input_files*.value.flatten()) {
         qc: sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
 
          snp_calling : sample_channel * [ 
+            forward_processed_bam +
             call_short_variants.when{ !opts.sv }.using(bam_ext: lrs_bam_ext) + normalize_gvcf.when { !opts.sv } + 
             phase_variants.when { !opts.sv }.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf.when { !opts.sv } + 
             check_variant_fraction.when { !opts.sv } + haplotag_bam.when { !opts.sv }.using(bam_ext: lrs_bam_ext)
          ],
 
          sv_calling: sample_channel * [ 
+            forward_processed_bam +
             mosdepth.using(bam_ext: lrs_bam_ext) + filterBam.using(bam_ext: lrs_bam_ext) + [
                 sniffles2_for_trios,
                 sniffles2 + filter_sv_calls.using(sv_tool:"sniffles"),
                 cutesv + filter_sv_calls.using(sv_tool:"cutesv")
             ] ],
 
-         methylation: sample_channel * [ bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" } ],
+         methylation: sample_channel * [
+            forward_processed_bam +
+            bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" }
+            ],
          
-         str_calling: sample_channel * [ chr(*str_chrs) * [ call_str.when { !opts.sv }.using(bam_ext: lrs_bam_ext) + 
-             annotate_repeat_expansions.when { !opts.sv } ] + merge_str_tsv.when { !opts.sv } + merge_str_vcf.when { !opts.sv } ],
+         str_calling: sample_channel * [
+            forward_processed_bam +
+            chr(*str_chrs) * [ call_str.when { !opts.sv }.using(bam_ext: lrs_bam_ext) +
+            annotate_repeat_expansions.when { !opts.sv } ] + merge_str_tsv.when { !opts.sv } + merge_str_vcf.when { !opts.sv } ],
 
          mito_calling: mito_sample_channel * [ call_mito_variants ] + 
             mito_sample_channel * [ run_mitoreport.using(maternal_ids: maternal_samples).when{ branch.sample in maternal_samples },

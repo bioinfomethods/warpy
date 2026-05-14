@@ -255,6 +255,8 @@ cutesv = {
 
             mkdir -p $cutesv_tmp_dir
 
+            export REF_PATH=$REF
+
             cuteSV
                 --threads $threads
                 --sample ${sample}

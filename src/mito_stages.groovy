@@ -1,11 +1,3 @@
-register_mito_bam = {
-    mito_sample_bams.get(sample, []).add(input.toString())
-}
-
-forward_mito_sample_bam = {
-    forward mito_sample_bams[sample]
-}
-
 run_clairs_to = {
     var bam_ext : 'bam'
 
