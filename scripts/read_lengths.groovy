@@ -13,6 +13,7 @@ cli = new CliBuilder(usage: 'read_lengths -bam <bam file>').tap {
     bam 'BAM file to calculate statistics from', args:1, required: true
     prefix 'Prefix for output files', args:1, required: true
     bed 'Regions to calculate read lengths for', args:1, required: false
+    tsv 'Output file for weighted read length distribution (TSV, default: <prefix>.lengths.tsv)', args:1, required: false
 }
 
 opts = cli.parse(args)
@@ -61,20 +62,26 @@ readLengthOutputFileName = opts.prefix + '.lengths.png'
 p.save(readLengthOutputFileName)
 log.info "Wrote $readLengthOutputFileName"
 
+def binLengths(lens, numBins, maxLen) {
+    def binner = new Binner(numBins, 0, maxLen)
+    def binWidth = maxLen / numBins
+    return lens.countBy { binner.bin(it) }.collect {
+        [
+            bin: it.key,
+            length: binner.midPoints[it.key],
+            upperBound: (it.key + 1) * binWidth,
+            count: it.value
+        ]
+    }
+    .grep { it.length }
+    .each {
+        it.bases = it.length * it.count
+    }
+    .sort { it.length }
+}
+
 // Bin the reads by length so we can calculate weighted distribution
-binner = new Binner(200, 0, 50000) // 200 bins from 0 to 50kb
-len_counts = lens.countBy { binner.bin(it)}.collect {
-    [
-        bin: it.key,
-        length: binner.midPoints[it.key],
-        count: it.value
-    ]
-}
-.grep { it.length } // fell into a bin
-.each {
-    it.bases = it.length * it.count
-}
-.sort { it.length }
+len_counts = binLengths(lens, 200, 50000)
 
 
 // Read lengths weighed by bases
@@ -84,6 +91,25 @@ new gngs.plot.Bars(x: len_counts*.length, y: len_counts*.bases.collect { it / 10
 readLengthByGBOutputFileName = opts.prefix + '.lengthsgb.png'
 p.save(readLengthByGBOutputFileName)
 log.info "Wrote $readLengthByGBOutputFileName"
+
+def tsvOutputFileName = opts.tsv ?: opts.prefix + '.lengths.tsv'
+def tsv_counts = binLengths(lens, 40, 20000)
+def totalCount = tsv_counts.sum { it.count }
+def totalBases = tsv_counts.sum { it.bases }
+double cumulativeFraction = 0.0
+double cumulativeFractionBases = 0.0
+new File(tsvOutputFileName).withWriter { w ->
+    w.writeLine("length\tcount\tfraction\tcumulative_fraction\tbases\tfraction_bases\tcumulative_fraction_bases")
+    tsv_counts.each { entry ->
+        def fraction = (entry.count / (double) totalCount).round(4)
+        def fractionBases = (entry.bases / (double) totalBases).round(4)
+        cumulativeFraction += fraction
+        cumulativeFractionBases += fractionBases
+        w.writeLine("${(int) entry.upperBound}\t${entry.count}\t${fraction}\t${cumulativeFraction.round(4)}\t${String.format('%d', (long) entry.bases)}\t${fractionBases}\t${cumulativeFractionBases.round(4)}")
+    }
+}
+log.info "Wrote $tsvOutputFileName"
+
 
 // Calculate the n50
 total_gb = len_counts.sum { it.bases }
