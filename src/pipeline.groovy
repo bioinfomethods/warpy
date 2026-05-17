@@ -1,4 +1,3 @@
-
 import gngs.*
 import org.yaml.snakeyaml.*
 
@@ -157,6 +156,10 @@ forward_sample_bam = {
     forward input.bam
 }
 
+forward_sample_ubam = {
+    forward input.ubam
+}
+
 sample_vcfs = Collections.synchronizedMap([:])
 sample_bams = Collections.synchronizedMap([:])
 sample_snfs = Collections.synchronizedMap([:])
@@ -170,13 +173,23 @@ run(input_files*.value.flatten()) {
     
     // paritition genome into 10Mbp chunks, but only take those that overlap our target regions
     Set<bpipe.RegionSet> partitions = hg38.partition(10000000).findAll { rs -> contigs.source.any { chr -> rs.overlaps(chr) } }
+
     
     init + check_tools + 
     
     // Phase 1: resolve or create BAM files
     make_mmi.when { ! new File(REF_MMI).exists() } +
+
+       sample_channel * [
+            verify_ubam_integrity.when { input_data_type[sample] == 'ubam' }
+       ] +
+
         sample_channel * [
-            basecall_align_reads.when { input_data_type[sample] == 'x5' } + minimap2_align.when { input_data_type[sample] == 'ubam' } + minimap2_align_fastq.when { input_data_type[sample] == 'fastq.gz' } + forward_sample_bam.when { input_data_type[sample] == 'bam' } + read_stats 
+            basecall_align_reads.when { input_data_type[sample] == 'x5' } + 
+            minimap2_align.when { input_data_type[sample] == 'ubam' } + 
+            minimap2_align_fastq.when { input_data_type[sample] == 'fastq.gz' } + 
+            forward_sample_bam.when { input_data_type[sample] == 'bam' } + 
+            read_stats
         ] +
 
     // Phase 2: single sample variant calling
@@ -197,7 +210,7 @@ run(input_files*.value.flatten()) {
              mosdepth + filterBam + [
                 //sniffles2_for_trios,
                 sniffles2 + filter_sv_calls + annotate_sv
-             ],
+             ] + ximmer_summarize,
 
              // runs out of memoroy :-(
              // longcalld

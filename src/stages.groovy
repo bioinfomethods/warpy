@@ -793,3 +793,15 @@ alignment_stats = {
     }
 
 }
+
+verify_ubam_integrity = {
+
+   doc "Verify the integrity of ubam files"
+
+   check("integrity of ubam for $sample") {
+       // Forcing decompression of every block is sufficient to validate the integrity of the CRC32  of each block
+       exec """
+       $tools.SAMTOOLS view $input.ubam > /dev/null
+       """
+   }
+}
