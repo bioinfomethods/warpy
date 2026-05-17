@@ -240,15 +240,15 @@ ximmer_summarize = {
         target_bed : opts.targets,
         XIMMER : tools.XIMMER
     
-    if(!file(EXCLUDE_CNV_REGIONS))
+    if(!file(EXCLUDE_CNV_REGIONS).exists())
         fail "Please set the excluded CNV regions in $EXCLUDE_CNV_REGIONS or override the  EXCLUDE_CNV_REGIONS variable"
      
-    if(!file(GNOMAD_SV_VCF).exists())
-        fail "Please set the excluded CNV regions in $EXCLUDE_CNV_REGIONS or override the  EXCLUDE_CNV_REGIONS variable"
- 
     requires GNOMAD_SV_VCF : "Please configure the location of the gnomAD-sv VCF file"
     
-    produce('local_combined_cnvs.json', 'local_cnv_report.tsv') {
+    if(!file(GNOMAD_SV_VCF).exists())
+        fail "Please place the GNOMAD SV VCF in $GNOMAD_SV_VCF or override the GNOMAD_SV_VCF variable"
+
+     produce('local_combined_cnvs.json', 'local_cnv_report.tsv') {
         exec """
 
             export JAVA_OPTS="-Xmx${memory}g"
@@ -268,7 +268,7 @@ ximmer_summarize = {
 
 
 
-        """, "wgs_summarize_cnvs"
+        """
     }
 }
 
