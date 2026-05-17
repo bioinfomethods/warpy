@@ -3,11 +3,22 @@ scriptFile = new File(bpipe.Config.config.script)
 
 if(scriptFile.name == 'qc_reports.groovy') {
     options {
-        design 'name of the design containing target regions to calculate coverage for', args:1, required: true
+        design 'name of the design containing target regions to calculate coverage for', args:1, required: false
+        targets 'path to BED file containing target regions to calculate QC for', args:1, required: false
     }
 
-    DESIGN=opts.design
-    TARGET_BED="$BASE/designs/$DESIGN/${DESIGN}.bed"
+    if(!opts.design && !opts.targets) {
+       throw new bpipe.PipelineError('Please provide one of -design or -targets')
+    }
+
+    if(opts.design) {
+        DESIGN=opts.design
+        TARGET_BED="$BASE/designs/$DESIGN/${DESIGN}.bed"
+    }
+    else {
+        TARGET_BED=opts.targets
+        DESIGN = file(TARGET_BED).name.replaceAll('.bed$','')
+    }
 }
 
 calc_coverage = {
@@ -18,7 +29,7 @@ calc_coverage = {
 
 
     def GAP_TARGET = null
-    def customGapTarget = TARGET_BED.absolutePath.replaceAll('.bed', '_GAP.bed')
+    def customGapTarget = file(TARGET_BED).absolutePath.replaceAll('.bed', '_GAP.bed')
     if(file(customGapTarget).exists()) {
         GAP_TARGET = customGapTarget
     }
