@@ -268,7 +268,7 @@ read_stats = {
 
             set -o pipefail
 
-            $tools.BAMSTATS --threads $threads $input.bam | gzip > $output.gz
+            $tools.BAMSTATS --cpu $threads $input.bam | gzip > $output.gz
         """
     }
 }
@@ -279,11 +279,9 @@ pileup_variants = {
    
     println("Clair chunk: " + region)
 
-    def chunk = new gngs.Region(region.toString())
-    
     // gngs.Region region = new gngs.Region(clair_chunk.toString())
     
-    produce("${sample}_${chunk.chr}_${chunk.from}.vcf", "${sample}_${chunk.chr}_${chunk.from}.txt") {
+    produce("${sample}_${region.id}.vcf", "${sample}_${region.id}.txt") {
 
 
         uses(clair3: 1) {
@@ -295,12 +293,12 @@ pileup_variants = {
                 python $tools.CLAIR3/clair3.py CallVariantsFromCffi
                     --chkpnt_fn $calling.CLAIR3_MODELS_PATH/${clair3_model.clair3_model_name}/pileup
                     --bam_fn $input.bam
-                    --bed_fn $opts.targets
+                    --bed_fn $region.bed
                     --call_fn $output.vcf.optional
                     --ref_fn $REF
-                    --ctgName $chunk.chr
-                    --ctgStart $chunk.from
-                    --ctgEnd $chunk.to
+                    --ctgName ${region.chromosomes[0]}
+                    --ctgStart $region.from
+                    --ctgEnd $region.to
                     --platform ont 
                     --fast_mode False
                     --snp_min_af $calling.snp_min_af
@@ -310,7 +308,7 @@ pileup_variants = {
                     --call_snp_only False
                     --gvcf ${calling.enable_gvcf ? "True" : "False"}
                     --enable_long_indel False
-                    --temp_file_dir $output.dir/${sample}_${chunk.chr}_${chunk.from}_gvcf_tmp_path
+                    --temp_file_dir $output.dir/${sample}_${region.id}_gvcf_tmp_path
                     --pileup
 
                 touch -a $output.vcf.optional
@@ -330,7 +328,7 @@ aggregate_pileup_variants = {
         exec """
             set -uo pipefail
 
-            $tools.PYPY $tools.CLAIR3/clair3.py SortVcf
+            python $tools.CLAIR3/clair3.py SortVcf
                 --contigs_fn $input
                 --input_dir ${file(input1.vcf).parentFile.path}
                 --vcf_fn_prefix $sample
@@ -344,7 +342,7 @@ aggregate_pileup_variants = {
             then echo "[INFO] Exit in pileup variant calling"; exit 1; fi
 
             bgzip -@ $threads -fdc $output.vcf.gz |
-                $tools.PYPY $tools.CLAIR3/clair3.py SelectQual --var_pct_phasing $calling.phasing_pct --phase --output_fn .
+                python $tools.CLAIR3/clair3.py SelectQual --var_pct_phasing $calling.phasing_pct --phase --output_fn .
         """
     }
 }

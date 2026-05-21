@@ -101,7 +101,6 @@ dorado_group_size = 10
 
 // println "The dorado input groups are: \n\n" + dorado_input_groups
 
-calling_chunk_size = 10000000
 
 targets_by_chr = new gngs.BED(opts.targets).load().groupBy { it.chr }.collect { chr, List<Region> regions ->
    new gngs.Region(chr, regions*.from.min(), regions*.to.max() )
@@ -111,6 +110,13 @@ genome 'hg38'
 
 
 contigs = channel(targets_by_chr*.chr.unique().grep { it != 'chrM' }).named('chr')
+
+var VARIANT_CALLING_PARTITIONS : 50
+
+targets_split_by_chr = targets.split(byChromosome:true, VARIANT_CALLING_PARTITIONS)
+
+
+//println "Variant calling will split over ${partitions.size()} partitions"
 
 sample_channel = channel(input_files).named('sample')
 
@@ -170,12 +176,8 @@ annotate_sv = segment {
 }
 
 run(input_files*.value.flatten()) {
-    
-    // paritition genome into 10Mbp chunks, but only take those that overlap our target regions
-    Set<bpipe.RegionSet> partitions = hg38.partition(10000000).findAll { rs -> contigs.source.any { chr -> rs.overlaps(chr) } }
-
-    
-    init + check_tools + 
+  
+    init + check_tools +
     
     // Phase 1: resolve or create BAM files
     make_mmi.when { ! new File(REF_MMI).exists() } +
@@ -195,9 +197,10 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
          snp_calling : sample_channel * [ 
-             partitions   * [ pileup_variants ] + aggregate_pileup_variants + longphase_modcall +
+             targets_split_by_chr * [ pileup_variants ]  + aggregate_pileup_variants  + longphase_modcall +
              [ 
                     get_qual_filter,
+                    
                     contigs * [
                         select_het_snps + phase_contig,
                         create_candidates + '%.bed' * [ evaluate_candidates ] 
@@ -219,10 +222,10 @@ run(input_files*.value.flatten()) {
          methylation: sample_channel * [ bam2bedmethyl ],
          
          str_calling: sample_channel * [ chr(*str_chrs) * [ call_str + annotate_repeat_expansions ] + merge_str_tsv + merge_str_vcf ]
-    ] + 
+    ]  + 
 
     // Generate QC and send
-    sample_channel * [  [ calc_coverage, read_lengths, samtools_stats ] + send_report.when { SEND_QC_TO_GITLAB } ] +
+    sample_channel * [  [ calc_coverage, calc_read_lengths, samtools_stats ] + send_report.when { SEND_QC_TO_GITLAB } ] +
 
     // Phase 3: family merging
     family_channel * [ 

@@ -1,5 +1,11 @@
 # Warpy Development Conventions
 
+## Pipeline Developement
+
+Warpy is written using the Bpipe pipeline framework.
+
+CRITICAL: read and obey coding conventions defined in `BPIPE_CONVENTIONS.md`
+
 ## Bash Script Best Practices
 
 ### Path Handling

@@ -63,7 +63,7 @@ samtools_stats = {
     }
 }
 
-read_lengths = {
+calc_read_lengths = {
 
     output.dir = "qc"
 
