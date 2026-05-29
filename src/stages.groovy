@@ -515,9 +515,11 @@ haplotag_bam = {
             --cram
             -t $threads 
             -o $output.dir/${file(output[cram_ext].prefix).name}
-
-            samtools index ${output[cram_ext]}
         """
+
+        exec """
+            samtools index ${output[cram_ext]}
+        """, "samtools"
     }
 }
 
