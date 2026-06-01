@@ -8,7 +8,7 @@ options {
     samples 'Sample metadata file', args:1, type: File, required: true
     targets 'Target regions to call variants in', args:1, type: File, required: true
     remap 'Remap the input BAM file', args:0, required: false
-    methylation 'Produce methylation analysis - ONT only', args: 1, required: false
+    methylation 'Produce methylation analysis - ONT only', args:0, required: false
     no_mito 'Skip mito variant calling', args:0, required: false
     sv 'Perform structural variant calling only', args:0, required: false
 }
