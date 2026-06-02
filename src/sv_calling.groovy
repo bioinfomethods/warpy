@@ -45,6 +45,7 @@ sniffles2 = {
                 --reference $REF
                 --output-rnames
                 --pass-only
+                --all-contigs
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.cram
                 --allow-overwrite $sniffles_args
@@ -72,6 +73,7 @@ sniffles2_for_trios = {
                 --reference $REF
                 --output-rnames
                 --pass-only
+                --all-contigs
                 --allow-overwrite
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.cram $sniffles_args

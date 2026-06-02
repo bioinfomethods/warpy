@@ -8,7 +8,7 @@ options {
     samples 'Sample metadata file', args:1, type: File, required: true
     targets 'Target regions to call variants in', args:1, type: File, required: true
     remap 'Remap the input BAM file', args:0, required: false
-    methylation 'Produce methylation analysis - ONT only', args: 1, required: false
+    methylation 'Produce methylation analysis - ONT only', args:0, required: false
     no_mito 'Skip mito variant calling', args:0, required: false
     sv 'Perform structural variant calling only', args:0, required: false
 }
@@ -266,8 +266,51 @@ annotate_singleton_sv = segment {
     ]
 }
 
-call_mito_variants = segment {
-    forward_processed_bam + run_clairs_to.using(bam_ext: lrs_bam_ext) + annotate_mito_variants
+call_snp_indels = segment {
+    sample_channel * [
+        forward_processed_bam + call_short_variants.using(bam_ext: lrs_bam_ext) + 
+        normalize_gvcf + phase_variants.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf + 
+        check_variant_fraction + haplotag_bam.using(bam_ext: lrs_bam_ext)
+    ]
+}
+
+call_sv = segment {
+    sample_channel * [
+        forward_processed_bam + mosdepth.using(bam_ext: lrs_bam_ext) + 
+        filterBam.using(bam_ext: lrs_bam_ext) + [
+            sniffles2_for_trios,
+            sniffles2 + filter_sv_calls.using(sv_tool:"sniffles"),
+            cutesv + filter_sv_calls.using(sv_tool:"cutesv")
+        ]
+    ]
+}
+
+call_methyl = segment {
+    sample_channel * [
+        forward_processed_bam + bam2bedmethyl.using(bam_ext: lrs_bam_ext)
+    ]
+}
+
+call_str_by_chrom = segment {
+    chr(*str_chrs) * [
+        call_str.using(bam_ext: lrs_bam_ext) + annotate_repeat_expansions
+    ]
+}
+
+call_sample_str = segment {
+    sample_channel * [
+        forward_processed_bam + call_str_by_chrom + merge_str_tsv + merge_str_vcf
+    ]
+}
+
+call_mito = segment {
+    mito_sample_channel * [
+        forward_processed_bam + run_clairs_to.using(bam_ext: lrs_bam_ext) + annotate_mito_variants
+    ] + 
+    mito_sample_channel * [
+        run_mitoreport.using(maternal_ids: maternal_samples).when{ branch.sample in maternal_samples },
+        run_mitoreport.when{ !(maternal_samples.containsKey(branch.sample)) }
+    ]
 }
 
 run(input_files*.value.flatten()) {
@@ -289,35 +332,11 @@ run(input_files*.value.flatten()) {
     // Phase 2: single sample variant calling
     [
         qc: sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
-
-         snp_calling : sample_channel * [ 
-            forward_processed_bam +
-            call_short_variants.when{ !opts.sv }.using(bam_ext: lrs_bam_ext) + normalize_gvcf.when { !opts.sv } + 
-            phase_variants.when { !opts.sv }.using(bam_ext: lrs_bam_ext) + gvcf_to_vcf.when { !opts.sv } + 
-            check_variant_fraction.when { !opts.sv } + haplotag_bam.when { !opts.sv }.using(bam_ext: lrs_bam_ext)
-         ],
-
-         sv_calling: sample_channel * [ 
-            forward_processed_bam +
-            mosdepth.using(bam_ext: lrs_bam_ext) + filterBam.using(bam_ext: lrs_bam_ext) + [
-                sniffles2_for_trios,
-                sniffles2 + filter_sv_calls.using(sv_tool:"sniffles"),
-                cutesv + filter_sv_calls.using(sv_tool:"cutesv")
-            ] ],
-
-         methylation: sample_channel * [
-            forward_processed_bam +
-            bam2bedmethyl.using(bam_ext: lrs_bam_ext).when { opts.methylation && lrs_platform == "ont" }
-            ],
-         
-         str_calling: sample_channel * [
-            forward_processed_bam +
-            chr(*str_chrs) * [ call_str.when { !opts.sv }.using(bam_ext: lrs_bam_ext) +
-            annotate_repeat_expansions.when { !opts.sv } ] + merge_str_tsv.when { !opts.sv } + merge_str_vcf.when { !opts.sv } ],
-
-         mito_calling: mito_sample_channel * [ call_mito_variants ] + 
-            mito_sample_channel * [ run_mitoreport.using(maternal_ids: maternal_samples).when{ branch.sample in maternal_samples },
-                                    run_mitoreport.when{ !(maternal_samples.containsKey(branch.sample)) } ]
+        snp_calling : call_snp_indels.when { !opts.sv },
+        sv_calling: call_sv,
+        methylation: call_methyl.when { opts.methylation && lrs_platform == "ont" },
+        str_calling: call_sample_str.when { !opts.sv },
+        mito_calling: call_mito.when { !opts.sv && !opts.no_mito }
     ] +
 
     // Phase 3: family merging
