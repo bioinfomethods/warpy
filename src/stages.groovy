@@ -331,9 +331,11 @@ zip_ref = {
 
     def ref_fasta = new File(REF).name
 
-    produce(ref_fasta + '.gz') {
+    produce(ref_fasta + '.gz', ref_fasta + '.gz.fai', ref_fasta + '.gz.gzi') {
         exec """
             bgzip -c $REF > $output.gz
+
+            samtools faidx $output.gz
         """
     }
 }
