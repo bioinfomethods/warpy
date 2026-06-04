@@ -360,7 +360,7 @@ run(input_files*.value.flatten()) {
         methylation: call_methyl.when { opts.methylation && lrs_platform == "ont" },
         str_calling: call_sample_str.when { !opts.sv },
         mito_calling: call_mito.when { !opts.sv && !opts.no_mito }
-    ] + ximmer_summarize_cnv + 
+    ] + sample_channel * [ ximmer_summarize_cnv ] + 
 
     // Phase 3: family merging
     family_channel * [ 

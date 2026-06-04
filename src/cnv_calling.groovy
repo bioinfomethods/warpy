@@ -12,6 +12,8 @@ extract_snps = {
     }
 }
 
+//mosdepth runs using SAM flag filter 1796, which is a superset of the stage filterBAM using filter 260
+
 spectre_mosdepth = {
     var bin_size : 1000
    
@@ -50,14 +52,14 @@ spectre = {
     
     output.dir = "cnv/spectre/${sample}"
     
-    transform('wf_snp.norm.phased.snp.vcf.gz') to('vcf.gz') {
+    transform('wf_snp.norm.phased.snp.vcf.gz') to('spectre.vcf.gz') {
         exec """
             spectre CNVCaller
                 --bin-size $bin_size
                 --coverage cnv/mosdepth/$sample
                 --snv $input.snp.vcf.gz
                 --only-chr $cnv_target_chrs
-                --sample-id $sample
+                --sample-id ${sample}.spectre
                 --output-dir $output.dir
                 --reference $ref_gz
                 --min-cnv-len $min_cnv_len
@@ -113,7 +115,7 @@ cnvpytor = {
 }
 
 ximmer_summarize_cnv = {
-    output.dir = "cnv/ximmer/sample"
+    output.dir = "cnv/ximmer/${sample}"
     
     var EXCLUDE_CNV_REGIONS : "$REF_BASE/centromeres.hg38.bed"
 
@@ -127,7 +129,7 @@ ximmer_summarize_cnv = {
                     -ddd $REF_BASE/decipher_population_cnvs.txt.gz
                     -dgv $REF_BASE/dgvMerged.txt.gz  
                     -refgene $REF_BASE/refGene.txt.gz  
-                    -target $opts.targets ${input.wf_sv.vcf.gz.optional.flag('-sniffle')} ${input.cutesv.vcf.gz.optional.flag('-cutesv')} ${input.spectre.vcf.optional.flag('-spectre')} ${input.cnvpytor.vcf.optional.flag('-cnvpytor')}
+                    -target $opts.targets ${input.wf_sv.vcf.gz.optional.flag('-sniffle')} ${input.cutesv.vcf.gz.optional.flag('-cutesv')} ${input.spectre.vcf.gz.optional.flag('-spectre')} ${input.cnvpytor.vcf.gz.optional.flag('-cnvpytor')}
                     -o $output.dir/cnv_report.html
                     -x50 $EXCLUDE_CNV_REGIONS
                     -json $output.dir/local_combined_cnvs.json  
@@ -135,7 +137,3 @@ ximmer_summarize_cnv = {
         """
     }
 }
-
-//mosdepth runs using SAM flag filter 1796, which is a superset of the stage filterBAM using filter 260
-//Both spectre and cnvpytor can use bgzipped REF?
-//Question: Spectre requires SNPs -> short variant calling required even for SV calling only (-sv) -> Separate CNV calling from SV calling?
