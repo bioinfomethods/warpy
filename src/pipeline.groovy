@@ -149,8 +149,6 @@ targets_by_chr = new gngs.BED(opts.targets).load().groupBy { it.chr }.collect { 
    new gngs.Region(chr, regions*.from.min(), regions*.to.max() )
 }
 
-cnv_target_chrs = targets_by_chr*.chr.join(',')
-
 genome 'hg38'
 
 

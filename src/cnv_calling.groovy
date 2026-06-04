@@ -48,6 +48,8 @@ spectre = {
     var min_cnv_len : 2000
     var bin_size : 1000
 
+    def cnv_target_chrs = targets_by_chr*.chr.join(',')
+
     def ref_gz = "align/ref/" + new File(REF).name + '.gz'
     
     output.dir = "cnv/spectre/${sample}"
@@ -78,6 +80,8 @@ spectre = {
 
 cnvpytor = {
     var bin_size : 1000
+
+    def cnv_target_chrs = targets_by_chr*.chr.join(' ')
 
     def ref_gz = "align/ref/" + new File(REF).name + '.gz'
     
