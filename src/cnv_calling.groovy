@@ -61,7 +61,7 @@ spectre = {
                 --coverage cnv/mosdepth/$sample
                 --snv $input.snp.vcf.gz
                 --only-chr $cnv_target_chrs
-                --sample-id ${sample}.spectre
+                --sample-id ${sample}
                 --output-dir $output.dir
                 --reference $ref_gz
                 --min-cnv-len $min_cnv_len
@@ -70,6 +70,8 @@ spectre = {
 
         exec """
             set -eo pipefail
+
+            mv ${output.vcf.gz.prefix.prefix.prefix}.vcf $output.vcf.gz.prefix
 
             bgzip -c $output.vcf.gz.prefix > $output.vcf.gz
 
