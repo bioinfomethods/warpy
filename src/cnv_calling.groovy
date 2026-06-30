@@ -1,7 +1,7 @@
 extract_snps = {
     output.dir = "cnv/snp"
 
-    transform('wf_snp.norm.phased.vcf.gz') to('wf_snp.norm.phased.snp.vcf.gz') {
+    transform('wf_snp.norm.phased.vcf.gz') to('wf_snp.norm.phased.pass.vcf.gz') {
         exec """
             set -eo pipefail
 
@@ -19,10 +19,10 @@ spectre_mosdepth = {
    
     output.dir = "cnv/mosdepth/$sample"
     
-    produce("${sample}.regions.bed.gz",
-            "${sample}.mosdepth.global.dist.txt",
-            "${sample}.mosdepth.summary.txt",
-            "${sample}.thresholds.bed.gz") {
+    from("${sample}.merged.pass.filtered.*.cram") produce("${sample}.regions.bed.gz",
+                                                          "${sample}.mosdepth.global.dist.txt",
+                                                          "${sample}.mosdepth.summary.txt",
+                                                          "${sample}.thresholds.bed.gz") {
 
         exec """
             set -eo pipefail
