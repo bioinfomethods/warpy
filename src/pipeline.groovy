@@ -15,6 +15,7 @@ options {
 
 load 'stages.groovy'
 load 'sv_calling.groovy'
+load 'cnv_calling.groovy'
 load 'str_calling.groovy'
 load 'methylation.groovy'
 load 'qc_stages.groovy'
@@ -166,6 +167,7 @@ sample_snfs = Collections.synchronizedMap([:])
 sample_sv_vcfs = Collections.synchronizedMap([:])
 sample_somaliers = Collections.synchronizedList([])
 sample_processed_bams = Collections.synchronizedMap([:])
+sample_filtered_crams = Collections.synchronizedMap([:])
 mito_sample_vcfs = Collections.synchronizedMap([:])
 
 init = {
@@ -219,8 +221,16 @@ register_processed_bam = {
     sample_processed_bams.get(sample, []).add(input.bam.toString())
 }
 
+register_filtered_cram = {
+    sample_filtered_crams.get(sample, []).add(input.cram.toString())
+}
+
 forward_processed_bam = {
     forward sample_processed_bams[sample]
+}
+
+forward_filtered_cram = {
+    forward sample_filtered_crams[sample]
 }
 
 annotate_sv = segment {
@@ -274,10 +284,19 @@ call_snp_indels = segment {
     ]
 }
 
+call_cnv = segment {
+    sample_channel * [
+        forward_filtered_cram + [
+            extract_snps + spectre_mosdepth + spectre,
+            cnvpytor
+        ]
+    ]
+}
+
 call_sv = segment {
     sample_channel * [
         forward_processed_bam + mosdepth.using(bam_ext: lrs_bam_ext) + 
-        filterBam.using(bam_ext: lrs_bam_ext) + [
+        forward_filtered_cram + [
             sniffles2_for_trios,
             sniffles2 + filter_sv_calls.using(sv_tool:"sniffles"),
             cutesv + filter_sv_calls.using(sv_tool:"cutesv")
@@ -326,24 +345,25 @@ run(input_files*.value.flatten()) {
             basecall_align_reads.when { input_data_type[sample] == 'x5' } + 
             remap_bam.when { input_data_type[sample] == 'bam' && opts.remap } + 
             add_sample_read_group.when { input_data_type[sample] == 'bam' && !opts.remap } +
-            align_ubam.when { input_data_type[sample] == 'ubam' } + register_processed_bam + read_stats
-        ] +
+            align_ubam.when { input_data_type[sample] == 'ubam' } + register_processed_bam + [
+                read_stats, filterBam.using(bam_ext: lrs_bam_ext) + register_filtered_cram
+            ]
+        ] + zip_ref.when { opts.remap || opts.sv } + 
 
     // Phase 2: single sample variant calling
     [
         qc: sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
-        snp_calling : call_snp_indels.when { !opts.sv },
+        snp_cnv_calling: call_snp_indels + call_cnv,
         sv_calling: call_sv,
         methylation: call_methyl.when { opts.methylation && lrs_platform == "ont" },
         str_calling: call_sample_str.when { !opts.sv },
         mito_calling: call_mito.when { !opts.sv && !opts.no_mito }
-    ] +
+    ] + sample_channel * [ ximmer_summarize_cnv ] + 
 
     // Phase 3: family merging
     family_channel * [ 
         init_family + merge_family.when { branch.family_size > 1 } + annotate_singleton_sv.when { branch.family_size == 1 },
         combine_family_vcfs.when { !opts.sv }
     ] + 
-
-    [ somalier_relate, zip_ref.when { opts.remap } ]
+    somalier_relate
 }
