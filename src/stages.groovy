@@ -322,7 +322,7 @@ merge_pass_calls = {
             $tools.SAMTOOLS index -@ $threads ${output[bam_ext]}
 
             md5sum ${output[bam_ext]} > ${output[bam_ext]}.md5
-        """
+        """, "merge_pass_calls"
     }
 }
 
@@ -514,13 +514,16 @@ haplotag_bam = {
             -r $REF
             -s $input.norm.phased.vcf.gz
             -b ${input[bam_ext]}
-            --cram
             -t $threads 
-            -o $output.dir/${file(output[cram_ext].prefix).name}
-        """
+            -o ${output.prefix}
+        """, "haplotag_bam"
 
         exec """
-            samtools index ${output[cram_ext]}
+            samtools view -T $REF -C -o $output ${output.prefix}.bam
+
+            samtools index $output
+
+            rm ${output.prefix}.bam
         """, "samtools"
     }
 }
