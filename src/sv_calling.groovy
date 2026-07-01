@@ -44,7 +44,6 @@ sniffles2 = {
                 --sample-id ${sample}
                 --reference $REF
                 --output-rnames
-                --pass-only
                 --all-contigs
                 --cluster-merge-pos $calling.cluster_merge_pos
                 --input $input.cram
@@ -72,7 +71,6 @@ sniffles2_for_trios = {
                 --sample-id ${sample}
                 --reference $REF
                 --output-rnames
-                --pass-only
                 --all-contigs
                 --allow-overwrite
                 --cluster-merge-pos $calling.cluster_merge_pos
