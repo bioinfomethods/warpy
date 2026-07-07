@@ -54,12 +54,12 @@ spectre = {
     
     output.dir = "cnv/spectre/${sample}"
     
-    transform('wf_snp.norm.phased.snp.vcf.gz') to('spectre.vcf.gz') {
+    transform('wf_snp.norm.phased.pass.vcf.gz') to('spectre.vcf.gz') {
         exec """
             spectre CNVCaller
                 --bin-size $bin_size
                 --coverage cnv/mosdepth/$sample
-                --snv $input.snp.vcf.gz
+                --snv $input.pass.vcf.gz
                 --only-chr $cnv_target_chrs
                 --sample-id ${sample}
                 --output-dir $output.dir
