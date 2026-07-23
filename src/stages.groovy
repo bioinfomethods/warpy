@@ -240,6 +240,7 @@ minimap2_align = {
     def map_platform = (lrs_platform == 'hifi') ? 'map-hifi' : 'map-ont'
     def rg_platform = (lrs_platform == 'hifi') ? 'PacBio' : 'ONT'
     def rg_lib = (lrs_platform == 'hifi') ? 'LIB_HIFI' : 'LIB_ONT'
+    def qscore_filter = (lrs_platform == 'hifi') ? 0 : calling.qscore_filter
 
     def SAMTOOLS = tools.SAMTOOLS
     
@@ -255,8 +256,8 @@ minimap2_align = {
             $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
                 | $tools.MINIMAP2 -y -t $threads -ax $map_platform -R "@RG\\tID:${sample}\\tPL:${rg_platform}\\tPU:1\\tLB:${rg_lib}\\tSM:${sample}" $REF_MMI - 
                 | $SAMTOOLS sort -@ $threads -T $output.dir/tmp
-                | tee >($SAMTOOLS view -e '[qs] < $calling.qscore_filter' -C -T $REF -o ${output.fail[cram_ext]} - )
-                | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $calling.qscore_filter' -C -T $REF -o ${output.pass[cram_ext]} -
+                | tee >($SAMTOOLS view -e '[qs] < $qscore_filter' -C -T $REF -o ${output.fail[cram_ext]} - )
+                | $SAMTOOLS view -e '(![qs] && [qs] != 0) || [qs] >= $qscore_filter' -C -T $REF -o ${output.pass[cram_ext]} -
 
             $SAMTOOLS index ${output.pass[cram_ext]}
         """
