@@ -240,7 +240,7 @@ minimap2_align = {
     def map_platform = (lrs_platform == 'hifi') ? 'map-hifi' : 'map-ont'
     def rg_platform = (lrs_platform == 'hifi') ? 'PacBio' : 'ONT'
     def rg_lib = (lrs_platform == 'hifi') ? 'LIB_HIFI' : 'LIB_ONT'
-    def qscore_filter = (lrs_platform == 'hifi') ? 0 : $calling.qscore_filter
+    def qscore_filter = (lrs_platform == 'hifi') ? 0 : calling.qscore_filter
 
     def SAMTOOLS = tools.SAMTOOLS
     
