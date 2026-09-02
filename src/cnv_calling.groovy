@@ -19,10 +19,10 @@ spectre_mosdepth = {
    
     output.dir = "cnv/mosdepth/$sample"
     
-    from("${sample}.merged.pass.filtered.*.cram") produce("${sample}.regions.bed.gz",
-                                                          "${sample}.mosdepth.global.dist.txt",
-                                                          "${sample}.mosdepth.summary.txt",
-                                                          "${sample}.thresholds.bed.gz") {
+    from("${sample}.merged.pass.filtered.*cram") produce("${sample}.regions.bed.gz",
+                                                         "${sample}.mosdepth.global.dist.txt",
+                                                         "${sample}.mosdepth.summary.txt",
+                                                         "${sample}.thresholds.bed.gz") {
 
         exec """
             set -eo pipefail
@@ -129,6 +129,8 @@ ximmer_summarize_cnv = {
     
     produce('local_combined_cnvs.json', 'local_cnv_report.tsv') {
         exec """
+            set -eo pipefail
+
             export JAVA_OPTS="-Xmx${memory}g"
 
             $tools.GROOVY -cp $XIMMER_GNGS_JAR:$tools.XIMMER/src/main/groovy:$tools.XIMMER/src/main/resources:$tools.XIMMER/src/main/js $tools.XIMMER/src/main/groovy/SummarizeCNVs.groovy

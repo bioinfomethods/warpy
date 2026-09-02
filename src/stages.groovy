@@ -56,7 +56,7 @@ dorado = {
 
     uses(dorados: 1) {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             echo "Processing $inputs.x5 with dorado"
 
@@ -251,6 +251,8 @@ minimap2_align = {
 
     produce(output_pass_cram, output_fail_cram) {
         exec """
+            set -eo pipefail
+
             mkdir -p $output.dir/tmp
 
             $SAMTOOLS bam2fq -@ $threads -T 1 $input.ubam
@@ -273,6 +275,8 @@ minimap2_align_fastq = {
     output.dir = 'align'
 
     exec """
+            set -eo pipefail
+
             $tools.MINIMAP2 -y -t $threads -ax map-ont $REF_MMI $input.fastq.gz
             | $SAMTOOLS sort -@ $threads > $output.bam
 
@@ -312,6 +316,8 @@ merge_pass_calls = {
 
     produce(output_pass_bam, output_pass_bam + '.md5') {
         exec """
+            set -eo pipefail
+
             $tools.SAMTOOLS merge ${output[bam_ext]} ${inputs.pass[cram_ext]}
             -f 
             -c 
@@ -334,6 +340,8 @@ zip_ref = {
 
     produce(ref_fasta + '.gz', ref_fasta + '.gz.fai', ref_fasta + '.gz.gzi') {
         exec """
+            set -eo pipefail
+
             bgzip -c $REF > $output.gz
 
             samtools faidx $output.gz
@@ -353,6 +361,8 @@ mosdepth = {
             "${sample}.thresholds.bed.gz") {
 
         exec """
+            set -eo pipefail
+
             export REF_PATH=$REF
 
             export MOSDEPTH_PRECISION=3
@@ -397,7 +407,7 @@ call_short_variants = {
         }
 
         exec """
-            set -uo pipefail
+            set -euo pipefail
 
             /opt/bin/run_clair3.sh --bam_fn=${input[bam_ext]}
                                    --bed_fn=$opts.targets
@@ -472,7 +482,7 @@ phase_variants = {
         def platform_opt = (lrs_platform == 'hifi') ? '--pb' : '--ont'
 
         exec """
-            set -uo pipefail
+            set -euo pipefail
 
             echo "Using longphase for final variant phasing"
 
@@ -509,7 +519,7 @@ haplotag_bam = {
 
     transform(bam_ext) to(output_cram_ext) {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             $tools.LONGPHASE haplotag 
             -r $REF
@@ -520,6 +530,8 @@ haplotag_bam = {
         """, "haplotag_bam"
 
         exec """
+            set -eo pipefail
+
             samtools view -T $REF -C -o $output ${output.prefix}.bam
 
             samtools index $output
@@ -551,7 +563,7 @@ combine_family_vcfs = {
     
     from(family_vcfs*.value.flatten()) produce("${family}.family.vcf.gz", "${family}.family.vcf.gz.md5") {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             export JAVA=$tools.JAVA
 

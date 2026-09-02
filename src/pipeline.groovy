@@ -332,6 +332,13 @@ call_mito = segment {
     ]
 }
 
+qc_analysis = segment {
+    [
+        sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
+        calc_sample_read_len_dist + plot_read_length_dist
+    ]
+}
+
 run(input_files*.value.flatten()) {
     
     // paritition genome into 10Mbp chunks, but only take those that overlap our target regions
@@ -348,11 +355,11 @@ run(input_files*.value.flatten()) {
             align_ubam.when { input_data_type[sample] == 'ubam' } + register_processed_bam + [
                 read_stats, filterBam.using(bam_ext: lrs_bam_ext) + register_filtered_cram
             ]
-        ] + zip_ref.when { opts.remap || opts.sv } + 
+        ] + zip_ref + 
 
     // Phase 2: single sample variant calling
     [
-        qc: sample_channel * [ somalier_extract.using(bam_ext: lrs_bam_ext) ],
+        qc: qc_analysis,
         snp_cnv_calling: call_snp_indels + call_cnv,
         sv_calling: call_sv,
         methylation: call_methyl.when { opts.methylation && lrs_platform == "ont" },

@@ -64,6 +64,8 @@ sniffles2_for_trios = {
 
     produce("${sample}.sniffles.snf") {
         exec """
+            set -eo pipefail
+
             export REF_PATH=$REF
 
             sniffles
@@ -146,7 +148,7 @@ jasmine_merge = {
 
     produce(out_vcf) {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             for vcf in ${family_vcfs}; do echo \$vcf; done > ${output.dir}/vcf.listings.txt
 
@@ -253,7 +255,7 @@ cutesv = {
 
     produce("${sample}.cutesv.raw.vcf") {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             mkdir -p $cutesv_tmp_dir
 
@@ -314,7 +316,7 @@ filter_sv_calls = {
 
     from(in_file) produce(out_files) {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             $BASE/scripts/get_filter_calls_command.py 
                 --target_bedfile $opts.targets
@@ -349,6 +351,8 @@ sort_sv_vcf = {
     
     produce("${sample}.wf_sv.vcf.gz") {
         exec """
+            set -eo pipefail
+
             vcfsort $input.vcf | bgzip -c > $output.vcf.gz
 
             tabix -p vcf $output.vcf.gz
@@ -379,6 +383,7 @@ ximmer_summarize = {
     
     produce('local_combined_cnvs.json', 'local_cnv_report.tsv') {
         exec """
+            set -eo pipefail
 
             export JAVA_OPTS="-Xmx${memory}g"
 
@@ -434,6 +439,8 @@ zip_summary = {
 
     produce("${sample}.zip", "${sample}.qc.zip") {
         exec """
+            set -eo pipefail
+
             zip $output.zip $input.json $input.tsv $sample/cnv_calls.js 
 
             mkdir -p $sample/qc
@@ -454,7 +461,7 @@ symbolic_alt = {
 
     transform(".vcf.gz") to(".vcf") {
         exec """
-            set -o pipefail
+            set -eo pipefail
 
             export JAVA=$tools.JAVA
 
@@ -473,10 +480,14 @@ sv_annotate = {
 
     transform(".vcf") to(".sv_annotate.vcf.gz") {
         exec """
+            set -eo pipefail
+
             cat $input | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/establish_end2_convention.groovy > $tmpname
         """, "symbolic_alt"
 
         exec """
+            set -eo pipefail
+
             gatk SVAnnotate 
                 -V $tmpname
                 --protein-coding-gtf $GENCODE_GTF
@@ -500,6 +511,8 @@ strvctvre_annotate = {
 
     transform('vcf.gz') to('strvctvre.vcf.bgz', 'strvctvre.vcf.bgz.md5') {
         exec """
+            set -eo pipefail
+
             gunzip -c $input 
             | $tools.GROOVY -cp $tools.GNGS_JAR $BASE/src/establish_end_convention.groovy > $tmpname
 
@@ -507,6 +520,8 @@ strvctvre_annotate = {
         """, "symbolic_alt"
 
         exec """
+            set -eo pipefail
+
             python $tools.STRVCTVRE_HOME/StrVCTVRE.py -p $PHYLOP100WAY -i ${tmpname}.bgz -o $output.vcf.bgz.prefix
 
             bgzip -c $output.vcf.bgz.prefix > $output.vcf.bgz
