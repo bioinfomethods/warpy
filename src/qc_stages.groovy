@@ -7,6 +7,8 @@ somalier_extract = {
 
     produce("${sample}.somalier") {
         exec """
+            set -eo pipefail
+
             export SOMALIER_SAMPLE_NAME=${sample}
 
             $tools.SOMALIER extract
@@ -50,7 +52,7 @@ check_variant_fraction = {
         // Note: we set the fraction to 1.0 below because the actual check
         // of the correct fraction is done below now
         exec """
-             set -o pipefail
+             set -eo pipefail
 
              unset GROOVY_HOME
 
