@@ -19,10 +19,10 @@ spectre_mosdepth = {
    
     output.dir = "cnv/mosdepth/$sample"
     
-    from("${sample}.merged.pass.filtered.*.cram") produce("${sample}.regions.bed.gz",
-                                                          "${sample}.mosdepth.global.dist.txt",
-                                                          "${sample}.mosdepth.summary.txt",
-                                                          "${sample}.thresholds.bed.gz") {
+    from("${sample}.merged.pass.filtered.*cram") produce("${sample}.regions.bed.gz",
+                                                         "${sample}.mosdepth.global.dist.txt",
+                                                         "${sample}.mosdepth.summary.txt",
+                                                         "${sample}.thresholds.bed.gz") {
 
         exec """
             set -eo pipefail
