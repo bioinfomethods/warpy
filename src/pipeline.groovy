@@ -355,7 +355,7 @@ run(input_files*.value.flatten()) {
             align_ubam.when { input_data_type[sample] == 'ubam' } + register_processed_bam + [
                 read_stats, filterBam.using(bam_ext: lrs_bam_ext) + register_filtered_cram
             ]
-        ] + zip_ref.when { opts.remap || opts.sv } + 
+        ] + zip_ref + 
 
     // Phase 2: single sample variant calling
     [
