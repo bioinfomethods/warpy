@@ -20,9 +20,7 @@ spectre_mosdepth = {
     output.dir = "cnv/mosdepth/$sample"
     
     from("${sample}.merged.pass.filtered.*cram") produce("${sample}.regions.bed.gz",
-                                                         "${sample}.mosdepth.global.dist.txt",
-                                                         "${sample}.mosdepth.summary.txt",
-                                                         "${sample}.thresholds.bed.gz") {
+                                                         "${sample}.mosdepth.summary.txt") {
 
         exec """
             set -eo pipefail
@@ -36,7 +34,7 @@ spectre_mosdepth = {
                 -t $threads
                 -b $bin_size
                 -f $REF
-                --thresholds 1,10,20,30
+                -Q 20
                 --no-per-base
                 $output.dir/${sample}
                 $input.cram
@@ -45,10 +43,10 @@ spectre_mosdepth = {
 }
 
 spectre = {
-    var min_cnv_len : 2000
+    var min_cnv_len : 80000
     var bin_size : 1000
 
-    def cnv_target_chrs = targets_by_chr*.chr.join(',')
+    def cnv_target_chrs = targets_by_chr.findAll { it.chr != 'chrY' && it.chr != 'chrM' }*.chr.join(',')
 
     def ref_gz = "align/ref/" + new File(REF).name + '.gz'
     
@@ -66,6 +64,8 @@ spectre = {
                 --reference $ref_gz
                 --min-cnv-len $min_cnv_len
                 --threads $threads
+                --blacklist $BASE/data/spectre/vcgs_hg38_blacklist_spectre.bed
+                --metadata hg38_metadata
         """, "spectre"
 
         exec """
