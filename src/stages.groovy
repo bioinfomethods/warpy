@@ -149,7 +149,7 @@ add_sample_read_group = {
 
     output.dir = "align"
 
-    transform('bam') to('sample_rg.bam', 'sample_rg.bam.md5') {
+    produce("${sample}.sample_rg.bam", "${sample}.sample_rg.bam.md5") {
         exec """
             set -eo pipefail
 
