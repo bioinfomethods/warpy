@@ -80,10 +80,47 @@ spectre = {
     }
 }
 
+hificnv = {
+    output.dir = "cnv/hificnv/${sample}"
+
+    def expected_cn_bed = "$BASE/data/hificnv/expected_cn/expected_cn.hg38.XX.bed"
+
+    if (meta[sample].sex == "male") {
+        expected_cn_bed = "$BASE/data/hificnv/expected_cn/expected_cn.hg38.XY.bed"
+    }
+
+    from("${sample}.*filtered.*.cram",
+         "${sample}.wf_snp.norm.phased.pass.vcf.gz") produce("${sample}.hificnv.vcf.gz") {
+        exec """
+            set -eo pipefail
+
+            export REF_PATH=$REF
+
+            hificnv \
+                --bam $input.cram \
+                --ref $REF \
+                --maf $input.vcf.gz \
+                --exclude $BASE/data/hificnv/excl_regions/cnv.excluded_regions.common_50.hg38.no_alt.bed.gz \
+                --expected-cn $expected_cn_bed \
+                --threads $threads \
+                --output-prefix $output.dir/hificnv \
+                --debug-gc-correction
+        """, "hificnv"
+
+        exec """
+            set -eo pipefail
+
+            bcftools view -f PASS ${output.dir}/hificnv.${sample}.vcf.gz | bgzip -c > $output.vcf.gz
+
+            tabix -p vcf $output.vcf.gz
+        """, "vcf_utils"
+    }
+}
+
 cnvpytor = {
     var bin_size : 1000
 
-    def cnv_target_chrs = targets_by_chr*.chr.join(' ')
+    def cnv_target_chrs = targets_by_chr.findAll { it.chr != 'chrY' && it.chr != 'chrM' }*.chr.join(',')
 
     def ref_gz = "align/ref/" + new File(REF).name + '.gz'
     
@@ -137,7 +174,7 @@ ximmer_summarize_cnv = {
                     -ddd $REF_BASE/decipher_population_cnvs.txt.gz
                     -dgv $REF_BASE/dgvMerged.txt.gz  
                     -refgene $REF_BASE/refGene.txt.gz  
-                    -target $opts.targets ${input.wf_sv.vcf.gz.optional.flag('-sniffle')} ${input.cutesv.vcf.gz.optional.flag('-cutesv')} ${input.spectre.vcf.gz.optional.flag('-spectre')} ${input.cnvpytor.vcf.gz.optional.flag('-cnvpytor')}
+                    -target $opts.targets ${input.wf_sv.vcf.gz.optional.flag('-sniffle')} ${input.cutesv.vcf.gz.optional.flag('-cutesv')} ${input.spectre.vcf.gz.optional.flag('-spectre')} ${input.hificnv.vcf.gz.optional.flag('-hificnv')} ${input.cnvpytor.vcf.gz.optional.flag('-cnvpytor')}
                     -o $output.dir/cnv_report.html
                     -x50 $EXCLUDE_CNV_REGIONS
                     -json $output.dir/local_combined_cnvs.json  

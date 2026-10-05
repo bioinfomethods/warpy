@@ -287,7 +287,11 @@ call_snp_indels = segment {
 call_cnv = segment {
     sample_channel * [
         forward_filtered_cram + [
-            extract_snps + spectre_mosdepth + spectre,
+            extract_snps + [
+                spectre_mosdepth.when { lrs_platform == 'ont' } + 
+                spectre.when { lrs_platform == 'ont' },
+                hificnv
+            ],
             cnvpytor
         ]
     ]
