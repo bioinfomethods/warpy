@@ -7,6 +7,8 @@ somalier_extract = {
 
     produce("${sample}.somalier") {
         exec """
+            set -eo pipefail
+
             export SOMALIER_SAMPLE_NAME=${sample}
 
             $tools.SOMALIER extract
@@ -50,7 +52,7 @@ check_variant_fraction = {
         // Note: we set the fraction to 1.0 below because the actual check
         // of the correct fraction is done below now
         exec """
-             set -o pipefail
+             set -eo pipefail
 
              unset GROOVY_HOME
 
@@ -72,5 +74,56 @@ check_variant_fraction = {
         """
     } otherwise {
         send text {"Sample $sample had excessive fraction of VAF outliers ($vaf_outliers) outside expected range "} to channel: 'cpipe_operator'
+    }
+}
+
+calc_sample_read_len_dist = {
+    output.dir = "qc/read_length_dist"
+
+    def sample_bams = sample_processed_bams.values().flatten().collect { "${it}" }.join(" ")
+
+    produce("sample_read_length_dist.txt") {
+        exec """
+            set -eo pipefail
+
+            echo -e \"sample_id\\tlength\\tcount\" > $output.txt
+
+            for bam in ${sample_bams}
+
+            do
+                fname=\$(basename $bam)
+
+                sample_id="\${fname%%.*}\"
+
+                $tools.SAMTOOLS stats -@ $threads $bam \
+                    | awk -v id=\"$sample_id\" -F'\\t' '\$1==\"RL\" {print id\"\\t\"\$2\"\\t\"\$3}' \
+                >> $output.txt
+
+            done
+        """
+    }
+}
+
+plot_read_length_dist = {
+    output.dir = "qc/read_length_dist"
+
+    def target_chrs = targets_by_chr*.chr.join(' ')
+    def sample_bam = sample_processed_bams.values().flatten().first()
+
+    transform(".txt") to(".pdf", ".summary.txt") {
+        exec """
+            set -eo pipefail
+
+            total_len=\$(awk 'NR==FNR{chroms[\$1]; next} \$1 in chroms{sum+=\$2} END{print sum}' \
+                <(echo "${target_chrs}" | tr ' ' '\\n') \
+                <(samtools view -H $sample_bam | \
+                    awk -F'\t' '\$1=="@SQ"{split(\$2,chr,":"); split(\$3,len,":"); print chr[2]"\t"len[2]}'))
+
+            $tools.RSCRIPT $BASE/scripts/plot_sample_coverage_vs_read_len_dist.R \
+                $input.txt \
+                $output.pdf \
+                $output.summary.txt \
+                \$total_len
+        """
     }
 }

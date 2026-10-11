@@ -9,6 +9,8 @@ bam2bedmethyl = {
 
     produce("${sample}.methyl.cpg.bed.gz", "${sample}.methyl.cpg.log.txt") {
         exec """
+            set -eo pipefail
+
             modkit pileup
                 --preset traditional
                 --ref $REF

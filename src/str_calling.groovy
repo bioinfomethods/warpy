@@ -9,6 +9,7 @@ call_str = {
         def sampleSex = meta.get(sample).sex
 
         exec """
+            set -eo pipefail
 
             { grep $chr -Fw $calling.repeats_bed || true; } > $output.dir/repeats_subset.bed
 
@@ -21,8 +22,6 @@ call_str = {
                     --min_support 1
                     --min_cluster_size 1
 
-                set -o pipefail
-
                 cat $output.vcf.gz.prefix | vcfstreamsort | bgziptabix $output.vcf.gz;
             else
                 echo "blank subset BED for $chr";
@@ -34,7 +33,7 @@ call_str = {
 annotate_repeat_expansions = {
 
     exec """
-        set -o pipefail
+        set -eo pipefail
 
         stranger -f ${calling.variant_catalogue_hg38} $input.vcf.gz
             | sed 's/\\ /_/g'
@@ -53,6 +52,8 @@ merge_str_tsv = {
 
     produce("${sample}.plot.tsv", "${sample}.stranger.tsv", "${sample}.straglr.tsv") {
         exec """
+            set -eo pipefail
+
             awk 'NR == 1 || FNR > 1' $input.plot.tsv > $output.plot.tsv
 
             awk 'NR == 1 || FNR > 1' $input.stranger.tsv > $output.stranger.tsv
@@ -68,6 +69,8 @@ merge_str_vcf = {
 
     produce("${sample}.wf_str.vcf.gz") {
         exec """
+            set -eo pipefail
+
             bcftools concat $inputs.vcf.gz > $output.vcf.gz.prefix
 
             bgzip -f $output.vcf.gz.prefix

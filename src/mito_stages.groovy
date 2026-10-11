@@ -9,6 +9,8 @@ run_clairs_to = {
         def output_prefix = "${output.prefix.prefix}".replaceFirst("^${sample_output_dir}", "")
 
         exec """
+            set -eo pipefail
+
             export TMPDIR=$TMPDIR
 
             mkdir -p ${output.dir.prefix}
@@ -63,6 +65,8 @@ annotate_mito_variants = {
 
     transform('.mito.dp.vcf') to('.mito.dp.vep.vcf.gz') {
         exec """
+            set -eo pipefail
+
             vep --vcf_info_field ANN \
                 --assembly GRCh38 \
                 --protein \
